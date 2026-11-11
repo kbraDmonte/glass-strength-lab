@@ -13,10 +13,24 @@ characteristic strength: the 5 % fractile σk;0.05 and its lower 95 %
 confidence bound σk;0.05;0.95. It can also convert between test areas,
 compare and pool series, and validate the fits out of sample.
 
-**Everything runs in your browser.** The calculation core is written in Rust
-and compiled to WebAssembly. Your Excel files are read locally and are
-**never uploaded anywhere**. They are kept in the browser's own storage
-(IndexedDB), so they are still there after a reload.
+> [!IMPORTANT]
+> **Your data never leave your computer.** GitHub Pages only delivers the page
+> itself (HTML, JavaScript, the WebAssembly calculation core, Plotly). Everything
+> after that runs in your browser: Excel files are read, calculated and plotted
+> locally and are **never sent to any server**. There is no backend, no
+> analytics, no tracking and no cookies.
+>
+> - Loaded files are kept in the browser's own storage (IndexedDB) on your
+>   computer, so they are still there after a reload. Saved views, language and
+>   theme are kept in `localStorage`. Nobody else can see them, but anyone who
+>   uses the same browser profile can. On a shared computer, remove the files in
+>   the viewer or clear the site data in the browser settings when you are done.
+> - The only other connection the page can make: if its bundled copy of Plotly
+>   fails to load, it fetches the same library from `cdn.plot.ly`. Nothing is
+>   sent with that request.
+> - You can check this yourself: open the developer tools (F12), tab
+>   *Network*, then load a file. No request is made. For complete isolation,
+>   run the page locally (see [Running it](#running-it)).
 
 > No measurement data are in this repository. The example file
 > `web/example_data.xlsx` and all test files are synthetic.
@@ -84,7 +98,7 @@ The published page needs no installation. To run it locally, serve the
 file does not work, because browsers do not load WebAssembly from `file://`.
 
 ```bash
-python -m http.server 8000 --directory web    # then open http://127.0.0.1:8000
+python -m http.server 8000 --bind 127.0.0.1 --directory web   # then open http://127.0.0.1:8000
 ```
 
 ## Building
