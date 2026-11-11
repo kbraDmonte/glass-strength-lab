@@ -119,9 +119,10 @@ tools/               scripts that generated the expected results (see below)
 
 ## How the results were verified
 
-This is an independent rewrite of an earlier Python prototype of the viewer
-(research project AP3 Re-Use-Glas, Hochschule München); no code was taken from
-it. The expected values in `tests/golden/` were produced by running that
+This is a rewrite of the author's earlier Python prototype of the viewer (the
+original idea came from the research project AP3 Re-Use-Glas, Hochschule
+München). The statistics were reimplemented in Rust from the published methods
+(see NOTICE); the web interface is adapted from the prototype. The expected values in `tests/golden/` were produced by running that
 prototype as a black box on synthetic data. `cargo test --release` checks:
 
 - **Fits and bands:** 1008 cases, 162 288 values, all methods and settings,
