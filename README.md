@@ -1,10 +1,11 @@
 # Glass Strength Lab
 
 Interactive evaluation of glass fracture strength from coaxial double-ring tests
-(DIN EN 1288-2 / -5), developed in the research project **AP3 Re-Use-Glas** at
-Hochschule München.
+(DIN EN 1288-2 / -5). Developed by [kbraDmonte](https://github.com/kbraDmonte), student assistant (HiWi) at
+the [Institute of Structural Mechanics and Design (ISMD)](https://www.ismd.tu-darmstadt.de),
+TU Darmstadt.
 
-**Open it:** <https://santiagoraec.github.io/glass-strength-lab/>
+**Open it:** <https://kbradmonte.github.io/glass-strength-lab/>
 
 Pick test series with filters. The viewer fits **2-parameter Weibull** and
 **log-normal** distributions, shows them on probability paper and reports the
@@ -118,9 +119,10 @@ tools/               scripts that generated the expected results (see below)
 
 ## How the results were verified
 
-This is a rewrite of an earlier Python version of the viewer. The expected
-values in `tests/golden/` were produced by running that earlier version as a
-black box on synthetic data. `cargo test --release` checks:
+This is an independent rewrite of an earlier Python prototype of the viewer
+(research project AP3 Re-Use-Glas, Hochschule München); no code was taken from
+it. The expected values in `tests/golden/` were produced by running that
+prototype as a black box on synthetic data. `cargo test --release` checks:
 
 - **Fits and bands:** 1008 cases, 162 288 values, all methods and settings,
   within 1e-7 relative.

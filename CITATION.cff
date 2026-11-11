@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Glass Strength Lab"
+abstract: "Weibull and log-normal analysis of glass fracture strength from coaxial double-ring tests (DIN EN 1288-2 / -5), in the browser (Rust/WebAssembly)."
+type: software
+authors:
+  - alias: "kbraDmonte"
+    affiliation: "Institute of Structural Mechanics and Design (ISMD), TU Darmstadt"
+repository-code: "https://github.com/kbraDmonte/glass-strength-lab"
+url: "https://kbradmonte.github.io/glass-strength-lab/"
+license:
+  - Apache-2.0
+  - MIT
