@@ -1,0 +1,14 @@
+[package]
+name = "viewer-core"
+version = "0.1.0"
+description = "Data handling and request logic of Glass Strength Lab (Excel reading, series, test-area conversion, comparisons, validation)"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+glass-stats = { path = "../glass-stats" }
+calamine = "0.38"
+serde_json = { version = "1", features = ["preserve_order"] }
+regex = "1"
+sha2 = "0.10"

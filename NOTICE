@@ -1,0 +1,24 @@
+Glass Strength Lab
+Copyright (c) 2026 AP3 Re-Use-Glas, Hochschule München
+
+This software implements statistical methods described in:
+
+  Cupać, J., Louter, C., Nikolov, G., Schuster, M., Datsiou, K. C. (2025).
+  Open GLASSlab – Interactive Strength Analysis Handbook. TU Delft.
+  https://oit.tudelft.nl/open-GLASSlab/
+  Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+  The methods (2P Weibull with least squares, weighted least squares and the
+  EN 12603 GLUE estimator; confidence bands; fractiles) were implemented
+  independently from these descriptions. No code or text was copied.
+  This project is not affiliated with or endorsed by TU Delft or the
+  handbook's authors; "TU Delft Methode 1" in the interface only names the
+  method setting it reproduces.
+
+  EN 12603: Glass in building – Procedures for goodness of fit and confidence
+  intervals for Weibull distributed glass strength data. Cited; the κn
+  coefficients are the published table values.
+
+Bundled third-party software:
+
+  plotly.js 2.35.2 (web/plotly.min.js)
+  Copyright 2012-2024, Plotly, Inc. MIT license.

@@ -1,0 +1,13 @@
+﻿[workspace]
+resolver = "2"
+members = ["crates/glass-stats", "crates/viewer-core", "crates/viewer-wasm"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/santiagoraec/glass-strength-lab"
+authors = ["AP3 Re-Use-Glas, Hochschule München"]
+
+[profile.release]
+opt-level = 3
+lto = true

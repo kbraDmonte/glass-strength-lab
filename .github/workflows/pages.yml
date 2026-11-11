@@ -1,0 +1,50 @@
+# Build the WebAssembly core, run all tests, and publish web/ to GitHub Pages.
+name: pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Tests
+        run: cargo test --release
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+      - name: Build WebAssembly
+        run: wasm-pack build crates/viewer-wasm --release --target web --out-dir ../../web/pkg --no-typescript
+      - name: Prepare site
+        run: rm -f web/pkg/.gitignore web/pkg/package.json
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

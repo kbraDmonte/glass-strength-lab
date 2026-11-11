@@ -1,0 +1,2253 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Glass Strength Lab</title>
+<link rel="icon" href="favicon.ico">
+<script>
+  // Set the theme before the first paint, so that the page does not flash light
+  try {
+    const d = localStorage.getItem("weibull_viewer_design");
+    if (d === "hell") document.documentElement.dataset.theme = "light";
+    if (d === "dunkel") document.documentElement.dataset.theme = "dark";
+  } catch (e) {}
+  // Plotly comes with the page. If that fails, it is loaded from the
+  // internet and the diagrams are drawn afterwards.
+  function loadPlotlyFallback() {
+    const s = document.createElement("script");
+    s.src = "https://cdn.plot.ly/plotly-2.35.2.min.js";
+    s.onload = () => { if (window.plotlyLoaded) window.plotlyLoaded(); };
+    document.head.append(s);
+  }
+</script>
+<script src="plotly.min.js" onerror="loadPlotlyFallback()"></script>
+<!-- answers the page's /api/... requests in the browser (WebAssembly) -->
+<script src="api_shim.js"></script>
+<style>
+  :root{
+    color-scheme:light;
+    --grund:#f6f6f4; --flaeche:#ffffff; --rand:#dcdcd8; --rand-stark:#c2c2bc;
+    --text:#1b1b1a; --text-2:#5c5c58; --text-3:#8a8a84; --text-aus:#b5b5ae;
+    --akzent:#2a78d6; --akzent-hell:#eaf2fc; --akzent-rand:#b9d4f2;
+    --akzent-dunkel:#2064b4; --akzent-text:#2a78d6;
+    --gut:#1baf7a; --gut-text:#137a55; --warn:#b3261e; --warn-hell:#fdeceb;
+    --hover:#f2f2f0; --hover-knopf:#fafaf9;
+    --gitter:#e6e6e2; --achse:#8a8a84; --linie-5:#b3261e;
+    --zweit:#eb6834; --sig:#f4a582; --nsig:#cde2fb;
+    --radius:8px;
+  }
+  /* Dark theme: "Auto" follows the operating system, "Dunkel" (dark) forces it */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --grund:#141413; --flaeche:#1e1e1c; --rand:#34342f; --rand-stark:#4b4b45;
+      --text:#ecebe6; --text-2:#b4b3ac; --text-3:#8a8982; --text-aus:#5b5a55;
+      --akzent:#3a7fd5; --akzent-hell:#1b2c42; --akzent-rand:#2f5687;
+      --akzent-dunkel:#4b8fe2; --akzent-text:#7fb4f0;
+      --gut:#3cc794; --gut-text:#56d3a3; --warn:#f07167; --warn-hell:#3a1d1b;
+      --hover:#2a2a27; --hover-knopf:#262624;
+      --gitter:#30302c; --achse:#6c6b65; --linie-5:#f07167;
+      --zweit:#f08a5d; --sig:#7a3a22; --nsig:#1b2c42;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --grund:#141413; --flaeche:#1e1e1c; --rand:#34342f; --rand-stark:#4b4b45;
+    --text:#ecebe6; --text-2:#b4b3ac; --text-3:#8a8982; --text-aus:#5b5a55;
+    --akzent:#3a7fd5; --akzent-hell:#1b2c42; --akzent-rand:#2f5687;
+    --akzent-dunkel:#4b8fe2; --akzent-text:#7fb4f0;
+    --gut:#3cc794; --gut-text:#56d3a3; --warn:#f07167; --warn-hell:#3a1d1b;
+    --hover:#2a2a27; --hover-knopf:#262624;
+    --gitter:#30302c; --achse:#6c6b65; --linie-5:#f07167;
+    --zweit:#f08a5d; --sig:#7a3a22; --nsig:#1b2c42;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 "Segoe UI",system-ui,-apple-system,sans-serif;
+       background:var(--grund);color:var(--text)}
+  button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--rand-stark);
+         background:var(--flaeche);color:var(--text);padding:5px 11px}
+  button:hover{border-color:var(--text-3);background:var(--hover-knopf)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primaer{background:var(--akzent);border-color:var(--akzent);color:#fff;font-weight:600}
+  button.primaer:hover{background:var(--akzent-dunkel);border-color:var(--akzent-dunkel)}
+  button.klein{padding:2px 8px;font-size:12.5px}
+  input[type=text],select{font:inherit;padding:5px 8px;border-radius:6px;
+       border:1px solid var(--rand-stark);background:var(--flaeche);color:var(--text)}
+  input:focus,select:focus{outline:2px solid var(--akzent-hell);border-color:var(--akzent)}
+  h1{font-size:17px;margin:0}
+  h2{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-2);
+     margin:0 0 8px;display:flex;align-items:center;gap:8px}
+  h2 .rechts{margin-left:auto;text-transform:none;letter-spacing:0}
+
+  header{background:var(--flaeche);border-bottom:1px solid var(--rand);padding:10px 20px;
+         display:flex;align-items:center;gap:14px 22px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+  header .quelle{color:var(--text-3);font-size:12px}
+  .steuer{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-left:auto}
+  .feld{display:flex;flex-direction:column;gap:2px}
+  .feld label{font-size:11.5px;color:var(--text-2)}
+  .umschalter{display:inline-flex;border:1px solid var(--rand-stark);border-radius:6px;overflow:hidden}
+  .umschalter button{border:0;border-radius:0;padding:5px 11px;background:var(--flaeche)}
+  .umschalter button + button{border-left:1px solid var(--rand-stark)}
+  .umschalter button.aktiv{background:var(--akzent);color:#fff}
+
+  main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px;padding:16px 20px 60px;
+       align-items:start}
+  .karte{background:var(--flaeche);border:1px solid var(--rand);border-radius:var(--radius);
+         padding:14px}
+  .karte + .karte{margin-top:14px}
+  aside{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow-y:auto;
+        scrollbar-width:thin}
+
+  /* --- Series list --- */
+  .serie{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;
+         border:1px solid transparent;cursor:pointer}
+  .serie:hover{background:var(--hover)}
+  .serie.aktiv{background:var(--akzent-hell);border-color:var(--akzent-rand)}
+  .serie.versteckt .name{color:var(--text-aus);text-decoration:line-through}
+  .punkt{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
+  .serie .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .serie .n{font-variant-numeric:tabular-nums;color:var(--text-2);font-size:12px}
+  .serie .n.leer{color:var(--warn);font-weight:600}
+  .ikon{border:0;background:none;padding:0 3px;color:var(--text-3);font-size:14px;line-height:1}
+  .ikon:hover{color:var(--text);background:none}
+  .ikon.weg:hover{color:var(--warn)}
+  .aktionen{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
+  .hinweis{font-size:12px;color:var(--text-3);margin:6px 0 0;line-height:1.45}
+
+  /* --- Editor --- */
+  .farben{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0 10px}
+  .farbe{width:20px;height:20px;border-radius:4px;border:2px solid transparent;cursor:pointer}
+  .farbe.gewaehlt{border-color:var(--text);box-shadow:0 0 0 2px var(--flaeche) inset}
+  #ed-name{width:100%}
+  details.filter{border:1px solid var(--rand);border-radius:6px;margin-top:6px}
+  details.filter.gesetzt{border-color:var(--akzent-rand)}
+  details.filter summary{cursor:pointer;padding:5px 9px;font-size:13px;display:flex;gap:6px;
+       align-items:center;list-style:none}
+  details.filter summary::-webkit-details-marker{display:none}
+  details.filter summary::before{content:"▸";color:var(--text-3);font-size:11px}
+  details.filter[open] summary::before{content:"▾"}
+  details.filter.gesetzt summary{background:var(--akzent-hell);font-weight:600}
+  details.filter summary .wahl{margin-left:auto;font-size:11.5px;color:var(--akzent-text);
+       font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .f-liste{max-height:190px;overflow-y:auto;padding:4px 8px 6px;scrollbar-width:thin}
+  .wert{display:flex;align-items:center;gap:7px;padding:2px 4px;border-radius:4px;
+        cursor:pointer;font-size:12.5px;line-height:1.35}
+  .wert:hover{background:var(--hover)}
+  .wert input{margin:0}
+  .wert .txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .wert .anz{color:var(--text-3);font-size:11px;font-variant-numeric:tabular-nums}
+  .wert.aus{color:var(--text-aus)}
+  .f-leeren{font-size:11.5px;color:var(--akzent-text);cursor:pointer;padding:0 4px 4px 8px;
+       display:inline-block}
+
+  /* --- Display --- */
+  .optionen{display:flex;flex-direction:column;gap:3px;font-size:13px}
+  .optionen label{display:flex;gap:7px;align-items:center;cursor:pointer}
+
+  /* --- Diagrams --- */
+  #diagramme{display:grid;gap:14px;grid-template-columns:1fr}
+  #diagramme.zwei{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .panel{background:var(--flaeche);border:1px solid var(--rand);border-radius:var(--radius);
+         padding:8px 8px 2px;min-width:0}
+  .panel .plot{width:100%;height:560px}
+  #diagramme.zwei .panel .plot{height:440px}
+  .meldung{background:var(--warn-hell);color:var(--warn);border-radius:6px;padding:8px 12px;
+        font-size:13px;margin-bottom:12px;white-space:pre-line}
+  .leer-hinweis{color:var(--text-3);text-align:center;padding:80px 20px}
+  .info{background:var(--akzent-hell);border:1px solid var(--akzent-rand);border-radius:6px;
+        padding:8px 12px;font-size:13px;margin-bottom:12px;white-space:pre-line;
+        display:flex;gap:10px;align-items:flex-start}
+  .info.fehler{background:var(--warn-hell);border-color:var(--warn);color:var(--warn)}
+  .info span{flex:1}
+  .kombi-auswahl{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin:10px 0 14px}
+  .kombi-auswahl select{min-width:200px}
+  .kombi-raster{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start}
+  @media (max-width:1150px){.kombi-raster{grid-template-columns:1fr}}
+  .kombi-schritt{font-weight:600;margin:14px 0 6px}
+  .kombi-schritt:first-child{margin-top:0}
+  .kombi-zeile{font-size:13px;margin:4px 0;line-height:1.5}
+  .kombi-zeile .ja{color:var(--gut-text);font-weight:600}
+  .kombi-zeile .nein{color:var(--warn);font-weight:600}
+  .kombi-zeile.ergaenzend{color:var(--text-2)}
+  .qq{width:100%;height:340px}
+  td.ja{color:var(--gut-text)} td.nein{color:var(--warn)}
+  /* --- Validation / group comparison --- */
+  .v-tabelle td,.v-tabelle th{white-space:normal;vertical-align:top}
+  .v-tabelle td:first-child{min-width:260px}
+  .v-tabelle td small{display:block;color:var(--text-3);font-size:11.5px;line-height:1.35}
+  .v-tabelle td.urteil{white-space:nowrap}
+  .ok{color:var(--gut-text);font-weight:600} .warn{color:var(--warn);font-weight:600}
+  .besser{color:var(--akzent-text);font-weight:600}
+  .v-tabs{margin:18px 0 10px;flex-wrap:wrap}
+  .v-erklaerung{font-size:13px;color:var(--text-2);line-height:1.5;margin:6px 0 10px;max-width:900px}
+  .v-erklaerung b{color:var(--text)}
+  .v-raster{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  @media (max-width:1150px){.v-raster{grid-template-columns:1fr}}
+  .v-plot{width:100%;height:320px}
+  .buchstabe{font-weight:700;letter-spacing:.08em;color:var(--akzent-text)}
+  .gv-matrix{width:100%;height:380px}
+  .datei{display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:13px}
+  .datei .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .datei .n{font-variant-numeric:tabular-nums;color:var(--text-2);font-size:12px}
+  .status{font-size:12px;color:var(--text-3);min-height:18px}
+
+  /* --- Table --- */
+  .tab-wrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+  th,td{padding:5px 9px;text-align:right;white-space:nowrap}
+  th{font-weight:600;color:var(--text-2);border-bottom:2px solid var(--text);vertical-align:bottom}
+  th small{display:block;font-weight:400;color:var(--text-3)}
+  td{border-bottom:1px solid var(--rand)}
+  th:first-child,td:first-child{text-align:left}
+  td.massg{font-weight:700}
+  td.delta-neg{color:var(--warn)}
+  td.delta-pos{color:var(--gut-text)}
+  tr.fehler td{color:var(--text-3)}
+  .tab-titel{font-weight:600;margin:4px 0 6px}
+  .tab-wrap + .tab-titel{margin-top:18px}
+  .fuss{font-size:12px;color:var(--text-3);margin-top:10px;line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Glass Strength Lab</h1>
+    <div class="quelle" id="quelle" data-t="lade">lädt …</div>
+  </div>
+  <div class="steuer">
+    <div class="feld"><label data-t="verteilung">Verteilung</label>
+      <div class="umschalter" id="sw-art">
+        <button data-w="weibull">Weibull</button><button data-w="lognormal" data-t="lognormal">Lognormal</button><button data-w="beide" data-t="beide">Beide</button>
+      </div></div>
+    <div class="feld"><label data-t="darstellung">Darstellung</label>
+      <div class="umschalter" id="sw-modus">
+        <button data-w="ueberlagert" data-t="ueberlagert">Überlagert</button><button data-w="einzeln" data-t="je_serie">Je Serie</button>
+      </div></div>
+    <div class="feld"><label data-t="weibull_methode">Weibull-Methode</label><select id="sel-methode"></select></div>
+    <div class="feld"><label data-t="plotpositionen">Plotpositionen</label><select id="sel-pos"></select></div>
+    <div class="feld"><label data-t="konfidenz">Konfidenz</label><select id="sel-seiten"></select></div>
+    <div class="feld"><label data-t="lognormal_mus">Lognormal μ, s</label><select id="sel-lognormal"></select></div>
+    <div class="feld"><label data-t="pruefflaeche" data-t-title="pruefflaeche_titel">Prüffläche</label><select id="sel-flaeche"></select></div>
+    <div class="feld"><label data-t="design">Design</label>
+      <div class="umschalter" id="sw-design">
+        <button data-w="auto" data-t="auto" data-t-title="auto_titel">Auto</button><button data-w="hell" data-t="hell">Hell</button><button data-w="dunkel" data-t="dunkel">Dunkel</button>
+      </div></div>
+    <div class="feld"><label data-t="sprache">Sprache</label>
+      <div class="umschalter" id="sw-sprache">
+        <button data-w="de">DE</button><button data-w="en">EN</button>
+      </div></div>
+    <div class="feld"><label>&nbsp;</label>
+      <button id="btn-tudelft" data-t="tudelft" data-t-title="tudelft_titel">TU Delft Methode 1</button></div>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="karte">
+      <h2 data-t="daten">Daten</h2>
+      <div id="dateiliste"></div>
+      <div class="aktionen">
+        <button class="klein" id="btn-ersetzen" data-t="ersetzen">Datei ersetzen …</button>
+        <button class="klein" id="btn-hinzu" data-t="hinzufuegen">Datei hinzufügen …</button>
+        <button class="klein" id="btn-standard" data-t="standard" data-t-title="standard_titel">Standarddatei</button>
+      </div>
+      <input type="file" id="datei-wahl" accept=".xlsx,.xlsm" hidden>
+      <p class="hinweis" data-t="daten_hinweis">Excel-Datei hochladen.</p>
+    </div>
+
+    <div class="karte">
+      <h2><span data-t="pruefserien">Prüfserien</span> <span class="rechts"><button class="klein" id="btn-neu" data-t="plus_serie">+ Serie</button></span></h2>
+      <div id="serienliste"></div>
+      <div class="aktionen">
+        <select id="sel-teilen" data-t-title="teilen_titel"></select>
+      </div>
+      <p class="hinweis" data-t="hinweis_filter">Klick auf eine Serie öffnet ihre Filter unten.</p>
+    </div>
+
+    <div class="karte" id="editor">
+      <h2><span data-t="serie_bearbeiten">Serie bearbeiten</span> <span class="rechts" id="ed-n"></span></h2>
+      <input type="text" id="ed-name" data-t-placeholder="name_platzhalter">
+      <div class="farben" id="ed-farben"></div>
+      <div id="ed-filter"></div>
+    </div>
+
+    <div class="karte">
+      <h2 data-t="anzeige">Anzeige</h2>
+      <div class="optionen">
+        <label><input type="checkbox" data-opt="punkte" checked> <span data-t="messpunkte">Messpunkte</span></label>
+        <label><input type="checkbox" data-opt="gerade" checked> <span data-t="gerade">Ausgleichsgerade</span></label>
+        <label><input type="checkbox" data-opt="band" checked> <span data-t="band">Konfidenzband</span></label>
+        <label><input type="checkbox" data-opt="fraktil" checked> <span data-t="fraktile">5 %-Fraktile</span></label>
+        <label><input type="checkbox" data-opt="gleichung" checked> <span data-t="gleichung">Geradengleichung</span></label>
+      </div>
+      <details class="filter" style="margin-top:10px">
+        <summary data-t="hover_angaben">Angaben beim Überfahren eines Punkts</summary>
+        <div class="f-liste" id="hover-liste"></div>
+      </details>
+    </div>
+
+    <div class="karte">
+      <h2 data-t="ansichten">Gespeicherte Ansichten</h2>
+      <select id="sel-ansicht" style="width:100%"></select>
+      <div class="aktionen">
+        <button class="klein" id="btn-speichern" data-t="ansicht_speichern">Aktuelle Ansicht speichern …</button>
+        <button class="klein" id="btn-loeschen" data-t="loeschen" disabled>Löschen</button>
+      </div>
+      <div class="aktionen">
+        <button class="klein" id="btn-ansicht-export" data-t="ansicht_export">Als Datei speichern …</button>
+        <button class="klein" id="btn-ansicht-import" data-t="ansicht_import">Aus Datei laden …</button>
+      </div>
+      <input type="file" id="ansicht-datei" accept=".json,application/json" hidden>
+      <p class="hinweis" data-t="ansichten_hinweis"></p>
+    </div>
+  </aside>
+
+  <section>
+    <div id="info"></div>
+    <div id="meldung"></div>
+    <div class="status" id="status"></div>
+    <div id="diagramme"></div>
+    <div class="karte" style="margin-top:14px">
+      <h2><span data-t="kennwerte">Kennwerte</span> <span class="rechts"><button class="klein" id="btn-csv" data-t="csv">CSV exportieren</button></span></h2>
+      <div id="tabellen"></div>
+      <div class="fuss" id="fuss"></div>
+    </div>
+    <div class="karte" style="margin-top:14px">
+      <h2 data-t="valid_titel">Validierung der Anpassung</h2>
+      <p class="hinweis" data-t="valid_hinweis"></p>
+      <div class="kombi-auswahl">
+        <div class="feld"><label data-t="valid_serie">Serie</label><select id="valid-serie"></select></div>
+        <div class="feld"><label data-t="valid_k" data-t-title="valid_k_titel">k-fold</label><select id="valid-k"></select></div>
+        <div class="feld"><label data-t="valid_split" data-t-title="valid_split_titel">Lern / Test</label><select id="valid-split"></select></div>
+        <div class="feld"><label data-t="valid_gruppe" data-t-title="valid_gruppe_titel">Gruppen auslassen nach</label><select id="valid-gruppe"></select></div>
+        <div class="feld"><label>&nbsp;</label><button class="primaer" id="btn-valid" data-t="valid_start">Validieren</button></div>
+      </div>
+      <div id="valid-ergebnis"></div>
+    </div>
+    <div class="karte" style="margin-top:14px">
+      <h2 data-t="gv_titel">Gruppenvergleich (Kruskal–Wallis + Dunn)</h2>
+      <p class="hinweis" data-t="gv_hinweis"></p>
+      <div class="kombi-auswahl">
+        <div class="feld"><label data-t="gv_gruppen">Gruppen</label><select id="gv-modus"></select></div>
+        <div class="feld" id="gv-serie-feld"><label data-t="valid_serie">Serie</label><select id="gv-serie"></select></div>
+        <div class="feld" id="gv-spalte-feld"><label data-t="gv_spalte">aufteilen nach</label><select id="gv-spalte"></select></div>
+        <div class="feld"><label data-t="gv_korrektur" data-t-title="gv_korrektur_titel">Korrektur</label><select id="gv-korrektur"></select></div>
+        <div class="feld"><label>&nbsp;</label><button class="primaer" id="btn-gv" data-t="gv_start">Vergleichen</button></div>
+      </div>
+      <div id="gv-ergebnis"></div>
+    </div>
+    <div class="karte" style="margin-top:14px">
+      <h2 data-t="kombi_titel">Datensätze kombinieren</h2>
+      <p class="hinweis" data-t="kombi_hinweis"></p>
+      <div class="kombi-auswahl">
+        <div class="feld"><label data-t="kombi_serie1">Serie 1</label><select id="kombi-a"></select></div>
+        <div class="feld"><label data-t="kombi_serie2">Serie 2</label><select id="kombi-b"></select></div>
+        <div class="feld"><label data-t="kombi_schwelle">Korrelation ab</label><select id="kombi-r"></select></div>
+        <div class="feld"><label>&nbsp;</label><button class="primaer" id="btn-kombi" data-t="kombi_pruefen">Prüfen</button></div>
+      </div>
+      <div id="kombi-ergebnis"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let DATA = null;            // /api/daten
+let RESULT = null;         // last /api/berechnen response
+const STATE_STORAGE_KEY = "weibull_viewer_zustand";
+const HOVER_DEFAULTS = ["ISO number", "ISO-Nummer", "Position", "Air/Tin", "Luft/Zinn",
+  "Direction", "Himmelsrichtung", "Floor", "Linear flaws in load ring",
+  "Lineare Fehler im Lastring", "Remark", "Bemerkung", "Damage", "Schädigung"];
+
+let Z = {
+  serien: [],
+  aktiv: 0,
+  art: "weibull",
+  modus: "ueberlagert",
+  methode: "m1_ls",
+  plotpositionen: "hazen",
+  konfidenz_seiten: "zweiseitig",
+  lognormal_methode: "moment",
+  zielflaeche: "0",            // test-area conversion: target area in mm² as text, "0" = off
+  optionen: {punkte: true, gerade: true, band: true, fraktil: true, gleichung: true},
+  hover: [],
+};
+
+const SELECT_FIELDS = [["sel-methode", "methode"], ["sel-pos", "plotpositionen"],
+  ["sel-seiten", "konfidenz_seiten"], ["sel-lognormal", "lognormal_methode"],
+  ["sel-flaeche", "zielflaeche"]];
+const $ = id => document.getElementById(id);
+
+// ---------------------------------------------------------------------------
+// Theme (light / dark)
+// ---------------------------------------------------------------------------
+// Stored separately from Z: saved views should not carry the theme.
+const THEME_STORAGE_KEY = "weibull_viewer_design";
+const SYSTEM_DARK = window.matchMedia("(prefers-color-scheme: dark)");
+let THEME = "auto";
+try { THEME = localStorage.getItem(THEME_STORAGE_KEY) || "auto"; } catch (e) {}
+
+const isDark = () => THEME === "dunkel" || (THEME === "auto" && SYSTEM_DARK.matches);
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// Lighten series colours slightly on a dark background (same hue), so that
+// violet, olive and brown stay readable too. The original colour is always stored.
+function displayColor(hex) {
+  if (!isDark() || !/^#[0-9a-f]{6}$/i.test(hex || "")) return hex;
+  const k = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
+    .map(c => Math.round(c + (255 - c) * 0.3).toString(16).padStart(2, "0"));
+  return "#" + k.join("");
+}
+
+function setTheme(theme) {
+  THEME = theme;
+  try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch (e) {}
+  if (theme === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme === "hell" ? "light" : "dark";
+  redrawTheme();
+}
+
+function redrawTheme() {
+  $("sw-design").querySelectorAll("button").forEach(b => b.classList.toggle("aktiv", b.dataset.w === THEME));
+  if (!DATA) return;
+  drawSeriesList(); drawEditor(); drawDiagrams(); drawTables(); combineShow();
+  validShow(); gcShow();
+}
+// ---------------------------------------------------------------------------
+// Language (DE / EN)
+// ---------------------------------------------------------------------------
+// Stored separately from Z, like the theme. Placeholders {name} are replaced in t().
+const LANG_STORAGE_KEY = "weibull_viewer_sprache";
+let LANG = "de";
+try { LANG = localStorage.getItem(LANG_STORAGE_KEY) === "en" ? "en" : "de"; } catch (e) {}
+// A link with .../#sprache=en (or =de) sets the language, e.g. for passing it on
+const LANG_FROM_LINK = (location.hash.match(/sprache=(de|en)/) || [])[1];
+if (LANG_FROM_LINK) {
+  LANG = LANG_FROM_LINK;
+  try { localStorage.setItem(LANG_STORAGE_KEY, LANG); } catch (e) {}
+}
+
+const TEXTS = {
+  de: {
+    lade: "lädt …", messwerte: "Messwerte", blatt: "Blatt „{blatt}“", dateien_n: "{n} Dateien",
+    daten: "Daten", ersetzen: "Datei ersetzen …", hinzufuegen: "Datei hinzufügen …",
+    standard: "Beispieldaten", standard_titel: "Synthetische Beispieldaten laden (ersetzt die geladenen Dateien)",
+    daten_hinweis: "Excel (.xlsx) mit einem Blatt „Dataset“ oder „Datensatz“ und einer Spalte mit „fracture stress“ bzw. „Bruchspannung“ im Namen. Die Dateien bleiben in diesem Browser – sie werden nirgendwohin hochgeladen.",
+    datei_entfernen: "Datei entfernen",
+    laedt_hoch: "„{datei}“ wird eingelesen …",
+    ok_ersetzt: "„{datei}“ geladen: {n} Messwerte.",
+    ok_hinzu: "„{datei}“ hinzugefügt: jetzt {n} Messwerte aus {k} Dateien. Die Spalte „Excel-Datei“ zeigt, woher eine Messung stammt.",
+    ok_standard: "Beispieldaten „{datei}“ geladen: {n} Messwerte.",
+    ok_entfernt: "„{datei}“ entfernt: jetzt {n} Messwerte.",
+    filter_entfernt: "Filter, die zur neuen Datei nicht passen, wurden entfernt bei: {namen}",
+    hochladen_fehler: "Hochladen fehlgeschlagen: {text}",
+    fehler_kein_excel: "„{datei}“ ist keine lesbare Excel-Datei (.xlsx).",
+    fehler_blatt_fehlt: "„{datei}“ hat kein Blatt „Dataset“ oder „Datensatz“. Vorhanden: {blaetter}",
+    fehler_spalte_fehlt: "„{datei}“ hat keine Spalte mit „fracture stress“ oder „Bruchspannung“ im Namen.",
+    fehler_keine_werte: "„{datei}“ enthält keine Messwerte größer null.",
+    fehler_zu_gross: "Die Datei ist größer als {mb} MB.",
+    fehler_doppelt: "„{datei}“ ist mit genau diesem Inhalt schon geladen – sonst würden Messungen doppelt gezählt.",
+    schliessen: "Schließen",
+    kombi_titel: "Datensätze kombinieren",
+    kombi_hinweis: "Ablauf: 1. Anderson-Darling je Serie (ist die Weibull-Verteilung gerechtfertigt?) · 2. Pearson-Korrelation der beiden Datensätze · 3. bei Korrelation: neue Serie aus allen Daten, darauf Anderson-Darling. Serien mit verschiedenen Prüfflächen werden nur nach der Umrechnung kombiniert (oben „Prüffläche“ wählen).",
+    kombi_serie1: "Serie 1", kombi_serie2: "Serie 2", kombi_schwelle: "Korrelation ab", kombi_pruefen: "Prüfen",
+    kombi_gleich: "Bitte zwei verschiedene Serien wählen.",
+    fehler_komb_zu_wenig: "„{name}“ hat nur {n} Messwert(e) – mindestens 3 nötig.",
+    fehler_komb_rechnung: "Berechnung nicht möglich: {name} {text}",
+    kombi_flaeche_verschieden: "Die Serien haben verschiedene Prüfflächen. Kombiniert wird nur nach der Umrechnung – oben unter „Prüffläche“ eine Zielfläche wählen.",
+    kombi_flaeche_umgerechnet: "Beide Serien sind auf {flaeche} umgerechnet.",
+    kombi_flaeche_gleich: "Beide Serien haben dieselbe Prüffläche – keine Umrechnung nötig.",
+    kombi_flaeche_unbekannt: "Für einen Teil der Messungen ist keine Ringgröße bekannt – ob die Prüfflächen übereinstimmen, lässt sich nicht prüfen.",
+    kombi_schritt1: "1 · Anderson-Darling je Serie", kombi_schritt2: "2 · Pearson-Korrelation der Datensätze",
+    kombi_schritt3: "3 · Kombinierte Serie", kombi_ad: "AD (α = 5 %)",
+    kombi_ad_ok: "✓ nicht abgelehnt", kombi_ad_nein: "✗ abgelehnt",
+    kombi_pearson: "r = {r}  ·  {paare} Paare  ·  p {p}  –  auf ln σ, gepaart über gleiche Bruchwahrscheinlichkeit",
+    kombi_korr_ja: "Korrelation gefunden (r ≥ {s})", kombi_korr_nein: "Keine ausreichende Korrelation (r < {s})",
+    kombi_ergaenzend_nein: "Ergänzend, Zwei-Stichproben-Anderson-Darling: p {p} – gleiche Verteilung nicht abgelehnt.",
+    kombi_ergaenzend_ja: "Ergänzend, Zwei-Stichproben-Anderson-Darling: p {p} – gleiche Verteilung abgelehnt: Niveau oder Form unterscheiden sich (im Q-Q-Diagramm liegen die Punkte neben der Diagonale). Pearson allein erkennt keinen Niveauunterschied.",
+    kombi_qq: "Q-Q-Diagramm (gleiche Bruchwahrscheinlichkeit)", kombi_diagonale: "1 : 1",
+    kombi_kombiniert: "Kombiniert", kombi_anlegen: "Kombinierte Serie anlegen",
+    kombi_gesperrt_flaeche: "Nicht kombinierbar: verschiedene Prüfflächen ohne Umrechnung.",
+    kombi_gesperrt_korr: "Nicht kombiniert: keine ausreichende Korrelation.",
+    kombi_angelegt: "Serie „{name}“ angelegt.",
+    kombi_serie_info: "Kombinierte Serie aus: {teile}. Jede Messung zählt einmal. Zum Ändern die Teilserien anpassen und neu kombinieren.",
+    kombi_nicht_teilen: "Kombinierte Serien lassen sich nicht aufteilen.",
+    valid_titel: "Validierung der Anpassung",
+    valid_hinweis: "Beschreibt die angepasste Verteilung auch Proben, die nicht in die Anpassung eingegangen sind? Dazu werden Proben zurückgehalten, die Verteilung an den übrigen angepasst und die zurückgehaltenen damit vorhergesagt – auf mehrere Arten. Gerechnet wird mit den Einstellungen oben, für Weibull und Lognormal nebeneinander. Dauert einige Sekunden.",
+    valid_serie: "Serie", valid_k: "k-fold", valid_k_titel: "In wie viele Teile die Serie für die Kreuzvalidierung zerlegt wird",
+    valid_split: "Lern / Test", valid_split_titel: "Zufallsaufteilung: wie viel Prozent der Proben zum Anpassen (Lernteil) und wie viel zum Prüfen (Testteil) verwendet werden",
+    valid_gruppe: "Gruppen auslassen nach", valid_gruppe_titel: "Optional: jede Gruppe (z. B. Scheibe, Quelle) einmal auslassen und aus den übrigen vorhersagen",
+    valid_keine_gruppe: "– nicht prüfen –", valid_start: "Validieren", valid_rechnet: "rechnet … (einige Sekunden)",
+    fehler_valid_zu_wenig: "„{name}“ hat nur {n} Messwerte – für die Validierung sind mindestens {min} nötig.",
+    fehler_valid_gruppen: "„{spalte}“ hat in dieser Serie weniger als zwei Gruppen mit mindestens 3 Messwerten.",
+    valid_ueberblick: "Auf einen Blick", valid_pruefung: "Prüfung",
+    v_ll: "Vorhersage neuer Proben", v_ll_k: "k-fold ({k} Teile, {wdh} Wiederholungen): mittlere log-Likelihood je zurückgehaltener Probe – höher = besser",
+    v_unter5: "Anteil unter {s5}", v_unter5_k: "zurückgehaltene Proben unter dem vorhergesagten 5 %-Fraktil – erwartet ≈ 5 %",
+    v_unter95: "Anteil unter {s95}", v_unter95_k: "… unter dem maßgebenden Wert (untere Konfidenzgrenze) – erwartet höchstens 5 %",
+    v_split: "Zufallsaufteilung {a} / {b}", v_split_k: "{n}× neu aufgeteilt: in wie vielen Fällen passt der Testteil nicht zur Anpassung (KS-Test, α = 5 %)? Erwartet ≈ 5 %, Warnung über 10 %",
+    v_loo: "Einfluss einzelner Proben", v_loo_k: "Leave-one-out: größte Änderung von {s95}, wenn eine einzige Probe fehlt – Warnung über 5 %",
+    v_boot: "Bootstrap-Bereich von {s5}", v_boot_k: "{n} Stichproben mit Zurücklegen, 90 %-Bereich. ✓, wenn {s95} darunter liegt (die Rechnung ist dann auf der sicheren Seite)",
+    v_gof: "Anpassungstest", v_gof_k: "Anderson-Darling mit parametrischem Bootstrap ({n}×) – formal gültiger p-Wert, obwohl die Parameter aus denselben Daten stammen",
+    v_gruppen: "Gruppen auslassen ({spalte})", v_gruppen_k: "jede Gruppe aus allen übrigen vorhergesagt (KS-Test, Holm-korrigiert) – passen alle?",
+    v_besser: "◀ besser", v_abgelehnt: "abgelehnt", v_nicht_abgelehnt: "nicht abgelehnt",
+    v_gruppen_wert: "{k} von {n} passen nicht", v_alle_passen: "alle {n} passen",
+    tab_kfold: "k-fold", tab_loo: "Leave-one-out", tab_split: "Zufallsaufteilung", tab_boot: "Bootstrap",
+    tab_gof: "Anpassungstest", tab_gruppen: "Gruppen auslassen",
+    erk_kfold: "<b>Was passiert?</b> Die Serie wird zufällig in {k} Teile zerlegt. Jeder Teil wird einmal zurückgehalten, die Verteilung an den übrigen angepasst und der zurückgehaltene Teil damit vorhergesagt; das Ganze {wdh}× mit neuer Zerlegung. <b>Wie lesen?</b> Im P-P-Diagramm steht jede zurückgehaltene Probe mit ihrer vorhergesagten Bruchwahrscheinlichkeit gegen den beobachteten Anteil. Liegen die Punkte auf der Diagonale, sagt die Verteilung neue Proben richtig vorher. Wichtig ist vor allem der untere Bereich (kleine Bruchwahrscheinlichkeit) – dort liegt das 5 %-Fraktil.",
+    erk_loo: "<b>Was passiert?</b> Jede Probe wird einmal weggelassen und die Anpassung ohne sie wiederholt. <b>Wie lesen?</b> Jeder Punkt zeigt, um wie viel Prozent sich der maßgebende Wert {s95} ändert, wenn genau diese Probe fehlt. Punkte weit weg von der Nulllinie sind einflussreiche Einzelproben – oft die kleinsten Werte. Lohnt sich ein Blick, ob es ein Ausreißer oder Prüffehler ist (Überfahren zeigt die Angaben der Probe).",
+    erk_split: "<b>Was passiert?</b> Die klassische Aufteilung in Lern- und Testdaten: {a} % der Proben zum Anpassen, {b} % zum Prüfen, {n}× mit neuer Zufallsaufteilung. <b>Wie lesen?</b> Das Histogramm zeigt je Aufteilung, welcher Anteil des Testteils unter dem vorhergesagten 5 %-Fraktil lag. Liegt die Masse um 5 %, stimmt das Fraktil. Zusätzlich wird je Aufteilung geprüft, ob der Testteil insgesamt zur Anpassung passt (KS-Test); das ist in der Übersicht der Anteil der Ablehnungen.",
+    erk_boot: "<b>Was passiert?</b> Aus der Serie werden {n} neue Stichproben gleicher Größe gezogen – mit Zurücklegen, also manche Proben doppelt, andere gar nicht – und jede neu angepasst. <b>Wie lesen?</b> Die Streuung zeigt, wie genau die Kennwerte aus diesen Daten bestimmt sind, ganz ohne Formel. Die gestrichelte Linie ist der maßgebende Wert {s95} aus der Formel; liegt er links vom 5 %-Punkt der Bootstrap-Verteilung, ist die Formel auf der sicheren Seite.",
+    erk_gof: "<b>Was passiert?</b> Das A² der Kennwerttabelle ist nur ein Vergleichsmaß, kein Test – die Parameter stammen ja aus denselben Daten. Hier werden {n} Stichproben aus der angepassten Verteilung simuliert, genauso angepasst und ihr A² berechnet. <b>Wie lesen?</b> Liegt das beobachtete A² (Linie) mitten in den simulierten Werten, passt die Verteilung. Liegt es weit rechts (p < 0,05), wird die Verteilung abgelehnt. Bei großen Serien wird schon eine kleine Abweichung erkannt.",
+    erk_gruppen: "<b>Was passiert?</b> Jede Gruppe (Wert der Spalte „{spalte}“) wird einmal komplett ausgelassen; die Verteilung wird an allen anderen Gruppen angepasst und die ausgelassene Gruppe damit vorhergesagt. <b>Wie lesen?</b> „passt“ heißt: die Gruppe sieht aus wie eine neue Stichprobe derselben Grundgesamtheit. Passen einzelne Gruppen nicht, ist es fraglich, sie mit den anderen zusammenzufassen. Median / Vorhersage &lt; 1: die Gruppe ist schwächer als vorhergesagt.",
+    pp_titel: "P-P-Diagramm der zurückgehaltenen Proben", pp_x: "vorhergesagte Bruchwahrscheinlichkeit", pp_y: "beobachteter Anteil",
+    diagonale: "ideal", loo_titel: "Änderung von {s95} ohne diese Probe", loo_y: "Änderung [%]",
+    loo_auswahl: "Gezeigt: {n} zufällig gewählte von {gesamt} Proben.",
+    loo_spanne: "{art}: {s95} zwischen {min} und {max} N/mm² (Jackknife-Standardfehler {se} N/mm²).",
+    split_titel: "Anteil unter {s5} im Testteil, je Aufteilung", split_x: "Anteil [%]", haeufigkeit: "Häufigkeit",
+    erwartet5: "erwartet 5 %",
+    boot_titel: "Bootstrap-Verteilung von {s5}", boot_kenngroesse: "Kenngröße", boot_anpassung: "Anpassung",
+    boot_analytisch: "{s95} (Formel)",
+    gof_titel: "{art}: A² der simulierten Stichproben", gof_beobachtet: "beobachtet",
+    gof_zeile: "beobachtet A² = {a2}, p {p}",
+    gr_gruppe: "Gruppe", gr_unter5: "unter {s5}", gr_median: "Median / Vorhersage", gr_p: "p (Holm)",
+    gr_passt: "✓ passt", gr_passt_nicht: "⚠ passt nicht",
+    gr_zu_klein: "{n} Gruppe(n) mit weniger als 3 Messwerten nicht geprüft.",
+    valid_fuss: "Alle Anpassungen mit denselben Funktionen wie die Diagramme und den Einstellungen oben. Der Zufall hat einen festen Startwert: gleiche Eingabe, gleiches Ergebnis. ✓/⚠ beruhen auf einem Binomialtest (Fraktile) bzw. den genannten Schwellen – eine Orientierung, kein Urteil im Sinne einer Norm.",
+    valid_umrechnung: " Geprüft werden die auf die Zielfläche umgerechneten Werte.",
+    gv_titel: "Gruppenvergleich (Kruskal–Wallis + Dunn)",
+    gv_hinweis: "Ein Test für alle Gruppen zugleich: Ist das Festigkeitsniveau überall gleich? Kruskal–Wallis prüft, ob überhaupt eine Gruppe abweicht; der Dunn-Test zeigt danach, welche Paare sich unterscheiden. Rangverfahren – keine Verteilungsannahme, robust gegen Ausreißer. Verschiedene Prüfflächen nur nach der Umrechnung (oben „Prüffläche“).",
+    gv_gruppen: "Gruppen", gv_modus_serien: "sichtbare Serien", gv_modus_spalte: "eine Serie aufteilen",
+    gv_spalte: "aufteilen nach", gv_korrektur: "Korrektur", gv_korrektur_titel: "Korrektur der p-Werte für viele Paarvergleiche",
+    gv_holm: "Holm", gv_bonferroni: "Bonferroni", gv_start: "Vergleichen", gv_spalte_waehlen: "– Spalte wählen –",
+    fehler_gv_zu_wenig: "Mindestens zwei Gruppen mit je 3 Messwerten nötig.",
+    fehler_gv_flaeche: "Die Gruppen haben verschiedene Prüfflächen – Unterschiede kämen dann schon vom Größeneffekt. Oben unter „Prüffläche“ eine Zielfläche wählen.",
+    fehler_gv_spalte: "Bitte eine Spalte zum Aufteilen wählen.",
+    hinweis_gv_doppelt: "{n} Messung(en) gehören zu mehr als einer Serie – die Gruppen sind dann nicht unabhängig, das Ergebnis gilt nur eingeschränkt.",
+    gv_flaeche_umgerechnet: "Alle Gruppen sind auf {flaeche} umgerechnet.",
+    gv_schritt1: "1 · Kruskal–Wallis: alle Gruppen zugleich",
+    gv_kw: "H = {h}  ·  Freiheitsgrade {df}  ·  N = {n}  ·  p {p}",
+    gv_kw_ja: "Mindestens eine Gruppe unterscheidet sich im Niveau.",
+    gv_kw_nein: "Kein Unterschied im Niveau nachweisbar – nach diesem Test dürfen alle Gruppen gemeinsam ausgewertet werden.",
+    gv_schritt2: "2 · Dunn: welche Gruppen unterscheiden sich?",
+    gv_buchstaben: "Buchstaben", gv_mittelrang: "mittlerer Rang", gv_median: "Median",
+    gv_buchstaben_erkl: "Gleicher Buchstabe = kein nachweisbarer Unterschied, zusammenfassbar. Kein gemeinsamer Buchstabe = das Niveau unterscheidet sich (α = 5 %, Korrektur nach {korr}). „a“ ist die Gruppe mit dem höchsten Median.",
+    gv_anlegen: "Serie aus „{b}“ anlegen",
+    gv_matrix: "Dunn-Test, korrigierte p-Werte",
+    gv_unterschied: "unterscheiden sich", gv_kein_unterschied: "kein Unterschied nachweisbar",
+    gv_grenze: "Dunn vergleicht nur das Niveau, nicht die Streuung: zwei Gruppen mit gleichem Median können ein ganz anderes m haben. Die Form prüft der Anderson-Darling-Test unter „Datensätze kombinieren“.",
+    gv_zu_klein: "Nicht berücksichtigt (weniger als 3 Messwerte): {liste}", gv_gekuerzt: "Nur die {n} größten Gruppen verglichen.",
+    pruefflaeche: "Prüffläche", keine_umrechnung: "keine Umrechnung", ring: "Ring",
+    pruefflaeche_titel: "Messwerte je Ringgröße mit σ·(A0/A1)^(1/m) auf eine gemeinsame Prüffläche umrechnen (Gl. 2.46)",
+    umgerechnet_auf: "umgerechnet auf {flaeche}", original: "Original",
+    faktor: "Faktor", s95_original: "{s95} orig.",
+    hinweis_umr_keine_spalte: "„{name}“: keine Spalte „Ring size“/„Ringgröße“ – Prüffläche nicht umgerechnet.",
+    hinweis_umr_ring_unbekannt: "„{name}“: Ringgröße „{ring}“ nicht lesbar – nicht umgerechnet.",
+    hinweis_umr_zu_wenig: "„{name}“: Ringgröße {ring} hat nur {n} Messwert(e) – m nicht bestimmbar, Serie nicht umgerechnet.",
+    hinweis_umr_m: "„{name}“: für Ringgröße {ring} ergibt sich kein gültiges m – nicht umgerechnet.",
+    hinweis_umr_wenig: "„{name}“: Ringgröße {ring} hat nur {n} Messwerte – m und damit der Umrechnungsfaktor sind unsicher.",
+    fuss_flaeche: " Prüffläche: Messwerte je Ringgröße mit σ·(A0/A1)^(1/m) auf {flaeche} umgerechnet (Gl. 2.46); m aus der Weibull-Anpassung der jeweiligen Ringgröße. " +
+      "Flächen nach Tab. 2.5: DIN EN 1288-2 240 000 mm², sonst π·r1² (Kreis im Lastring). Gültig nur bei Weibull-Verteilung und gleichmäßig verteilten Oberflächendefekten. " +
+      "Die Lognormal-Werte sind die Anpassung an die umgerechneten Messwerte; strichpunktiert: Gerade vor der Umrechnung.",
+    keine_daten: "Keine Daten geladen – bitte oben links eine Excel-Datei hochladen.",
+    fehler_standard_fehlt: "Die Beispieldaten „{datei}“ konnten nicht geladen werden.",
+    verteilung: "Verteilung", lognormal: "Lognormal", beide: "Beide",
+    darstellung: "Darstellung", ueberlagert: "Überlagert", je_serie: "Je Serie",
+    weibull_methode: "Weibull-Methode", plotpositionen: "Plotpositionen", konfidenz: "Konfidenz",
+    lognormal_mus: "Lognormal μ, s", design: "Design", auto: "Auto", hell: "Hell", dunkel: "Dunkel",
+    auto_titel: "Wie im Betriebssystem eingestellt", sprache: "Sprache",
+    tudelft: "TU Delft Methode 1",
+    tudelft_titel: "Methode 1, Hazen, einseitig 95 %, Lognormal per Regression – reproduziert die open-GLASSlab-Rechnung",
+    pruefserien: "Prüfserien", plus_serie: "+ Serie",
+    teilen: "Markierte Serie aufteilen nach …",
+    teilen_titel: "Markierte Serie in eine Serie je Wert dieser Spalte aufteilen",
+    hinweis_filter: "Klick auf eine Serie öffnet ihre Filter unten. Die Filter wirken wie im Konfigurator: UND zwischen Spalten, ODER innerhalb einer Spalte.",
+    serie_bearbeiten: "Serie bearbeiten", name_platzhalter: "Name der Serie",
+    anzeige: "Anzeige", messpunkte: "Messpunkte", gerade: "Ausgleichsgerade",
+    band: "Konfidenzband", fraktile: "5 %-Fraktile", gleichung: "Geradengleichung",
+    hover_angaben: "Angaben beim Überfahren eines Punkts",
+    ansichten: "Gespeicherte Ansichten", ansicht_laden: "– Ansicht laden –",
+    ansicht_speichern: "Aktuelle Ansicht speichern …", loeschen: "Löschen",
+    ansicht_name: "Name der Ansicht:", ansicht_loeschen_frage: "Ansicht „{name}“ löschen?",
+    ansicht_export: "Als Datei speichern …", ansicht_import: "Aus Datei laden …",
+    ansichten_hinweis: "Die Liste liegt in „Viewer_Ansichten.json“ neben dem Viewer. „Als Datei speichern“ sichert die aktuelle Ansicht (Serien, Filter, Einstellungen) als eigene .json-Datei – zum Weitermachen oder Weitergeben. Die Excel-Daten selbst sind nicht enthalten.",
+    ansicht_datei_geladen: "Ansicht aus „{datei}“ geladen.",
+    ansicht_datei_fehlt: "Diese Ansicht wurde mit {dateien} erstellt – gerade nicht geladen. Unter „Daten“ hinzufügen, damit alle Serien stimmen.",
+    ansicht_datei_ungueltig: "„{datei}“ ist keine gespeicherte Ansicht von Glass Strength Lab.",
+    kennwerte: "Kennwerte", csv: "CSV exportieren",
+    ohne_namen: "(ohne Namen)", ausblenden: "Ausblenden", einblenden: "Einblenden",
+    duplizieren: "Duplizieren", entfernen: "Entfernen", kopie: " (Kopie)",
+    keine_serie: "Keine Serie – „+ Serie“ anlegen.", auswahl_aufheben: "Auswahl aufheben",
+    alle_messwerte: "Alle Messwerte", serie_n: "Serie {n}",
+    teilen_zu_wenig: "„{spalte}“ hat in dieser Serie weniger als zwei Werte mit mindestens 3 Messungen – nichts aufzuteilen.",
+    teilen_zu_viele: "„{spalte}“ hat {n} Werte – die {max} häufigsten werden gezeigt.",
+    rechnet: "rechnet …",
+    status: "{methode} · Plotpositionen: {pos} · Konfidenz: {konf} · Lognormal: {ln}",
+    fehlgeschlagen: "Berechnung fehlgeschlagen: {text}",
+    start_fehlgeschlagen: "Start fehlgeschlagen: {text}",
+    zu_wenig: "„{name}“: nur {n} Messwert(e) – nicht ausgewertet.",
+    serie_fehler: "„{name}“: {text}",
+    art_weibull: "Zwei-Parameter-Weibullverteilung", art_lognormal: "Lognormalverteilung",
+    massgebend: "maßgebend", fraktil_linie: "5 %-Fraktil",
+    legende_band: "Konfidenzband", legende_original: "Gerade vor Umrechnung",
+    x_achse: "Bruchspannung σ  [N/mm²]", y_achse: "Bruchwahrscheinlichkeit P<sub>f</sub>  [%]",
+    plotly_fehlt: "Plotly konnte nicht geladen werden – besteht eine Internetverbindung?",
+    keine_auswertbar: "Keine auswertbare Serie sichtbar (je Serie mindestens 3 Messwerte).",
+    pruefserie: "Prüfserie", delta: "Δ zu Serie 1", zu_wenige: "zu wenige Messwerte",
+    sigma_vert: "σ Vert.",
+    fuss: "{s95} = maßgebender Wert: untere Grenze des Konfidenzintervalls des 5 %-Fraktils. " +
+      "A² (Anderson-Darling) ist ein Vergleichsmaß zwischen den Verteilungen – kleiner = bessere Anpassung. " +
+      "σx = Standardabweichung der Messwerte, σ Vert. = Standardabweichung der angepassten Verteilung. " +
+      "Gerechnet nach open-GLASSlab (TU Delft) und EN 12603; ",
+    fuss_regression: "Lognormal μ, s hier per Regression im Netz wie im open-GLASSlab der TU Delft .",
+    fuss_moment: "die Lognormalverteilung über die Momentenschätzung.",
+    csv_kopf: ["Verteilung", "Prüfserie", "n", "m bzw. μ", "β bzw. s", "R² %", "σf,min", "σf,max", "X",
+      "σk,0,05", "σk,0,05;0,95", "σk,0,05 obere Grenze", "σx (Messwerte)", "σ (Verteilung)", "A²", "Zielfläche [cm²]", "Faktor", "σk,0,05;0,95 original", "Einstellungen"],
+    csv_datei: "Glass_Strength_Lab_Kennwerte.csv",
+  },
+  en: {
+    lade: "loading …", messwerte: "measurements", blatt: "sheet “{blatt}”", dateien_n: "{n} files",
+    daten: "Data", ersetzen: "Replace file …", hinzufuegen: "Add file …",
+    standard: "Example data", standard_titel: "Load synthetic example data (replaces the loaded files)",
+    daten_hinweis: "Excel (.xlsx) with a sheet “Dataset” or “Datensatz” and a column with “fracture stress” or “Bruchspannung” in its name. The files stay in this browser – they are not uploaded anywhere.",
+    datei_entfernen: "Remove file",
+    laedt_hoch: "Reading “{datei}” …",
+    ok_ersetzt: "“{datei}” loaded: {n} measurements.",
+    ok_hinzu: "“{datei}” added: now {n} measurements from {k} files. The column “Excel-Datei” shows where each measurement comes from.",
+    ok_standard: "Example data “{datei}” loaded: {n} measurements.",
+    ok_entfernt: "“{datei}” removed: now {n} measurements.",
+    filter_entfernt: "Filters that do not fit the new file were removed for: {namen}",
+    hochladen_fehler: "Upload failed: {text}",
+    fehler_kein_excel: "“{datei}” is not a readable Excel file (.xlsx).",
+    fehler_blatt_fehlt: "“{datei}” has no sheet “Dataset” or “Datensatz”. Found: {blaetter}",
+    fehler_spalte_fehlt: "“{datei}” has no column with “fracture stress” or “Bruchspannung” in its name.",
+    fehler_keine_werte: "“{datei}” contains no measurements greater than zero.",
+    fehler_zu_gross: "The file is larger than {mb} MB.",
+    fehler_doppelt: "“{datei}” with exactly this content is already loaded – measurements would be counted twice.",
+    schliessen: "Close",
+    kombi_titel: "Combine datasets",
+    kombi_hinweis: "Procedure: 1. Anderson-Darling per series (is the Weibull distribution justified?) · 2. Pearson correlation of the two datasets · 3. if correlated: new series from all data, with Anderson-Darling. Series with different test areas are only combined after conversion (choose a “Test area” above).",
+    kombi_serie1: "Series 1", kombi_serie2: "Series 2", kombi_schwelle: "Correlation from", kombi_pruefen: "Check",
+    kombi_gleich: "Please choose two different series.",
+    fehler_komb_zu_wenig: "“{name}” has only {n} measurement(s) – at least 3 needed.",
+    fehler_komb_rechnung: "Calculation not possible: {name} {text}",
+    kombi_flaeche_verschieden: "The series have different test areas. They are only combined after conversion – choose a target under “Test area” above.",
+    kombi_flaeche_umgerechnet: "Both series are converted to {flaeche}.",
+    kombi_flaeche_gleich: "Both series have the same test area – no conversion needed.",
+    kombi_flaeche_unbekannt: "For some measurements no ring size is known – whether the test areas match cannot be checked.",
+    kombi_schritt1: "1 · Anderson-Darling per series", kombi_schritt2: "2 · Pearson correlation of the datasets",
+    kombi_schritt3: "3 · Combined series", kombi_ad: "AD (α = 5 %)",
+    kombi_ad_ok: "✓ not rejected", kombi_ad_nein: "✗ rejected",
+    kombi_pearson: "r = {r}  ·  {paare} pairs  ·  p {p}  –  on ln σ, paired by equal probability of failure",
+    kombi_korr_ja: "Correlation found (r ≥ {s})", kombi_korr_nein: "No sufficient correlation (r < {s})",
+    kombi_ergaenzend_nein: "Supplementary, two-sample Anderson-Darling: p {p} – same distribution not rejected.",
+    kombi_ergaenzend_ja: "Supplementary, two-sample Anderson-Darling: p {p} – same distribution rejected: level or shape differ (in the Q-Q plot the points lie off the diagonal). Pearson alone cannot detect a level difference.",
+    kombi_qq: "Q-Q plot (equal probability of failure)", kombi_diagonale: "1 : 1",
+    kombi_kombiniert: "Combined", kombi_anlegen: "Create combined series",
+    kombi_gesperrt_flaeche: "Not combinable: different test areas without conversion.",
+    kombi_gesperrt_korr: "Not combined: no sufficient correlation.",
+    kombi_angelegt: "Series “{name}” created.",
+    kombi_serie_info: "Combined series of: {teile}. Each measurement counts once. To change it, adjust the part series and combine again.",
+    kombi_nicht_teilen: "Combined series cannot be split.",
+    valid_titel: "Validation of the fit",
+    valid_hinweis: "Does the fitted distribution also describe specimens that were not used for the fit? Specimens are held back, the distribution is fitted to the rest, and the held-back ones are predicted with it – in several ways. Uses the settings above, for Weibull and log-normal side by side. Takes a few seconds.",
+    valid_serie: "Series", valid_k: "k-fold", valid_k_titel: "Into how many parts the series is split for cross-validation",
+    valid_split: "Train / test", valid_split_titel: "Random split: what percentage of the specimens is used for fitting (training part) and for checking (test part)",
+    valid_gruppe: "Leave out groups by", valid_gruppe_titel: "Optional: leave out each group (e.g. pane, source) once and predict it from the others",
+    valid_keine_gruppe: "– don't check –", valid_start: "Validate", valid_rechnet: "calculating … (a few seconds)",
+    fehler_valid_zu_wenig: "“{name}” has only {n} measurements – validation needs at least {min}.",
+    fehler_valid_gruppen: "“{spalte}” has fewer than two groups with at least 3 measurements in this series.",
+    valid_ueberblick: "At a glance", valid_pruefung: "Check",
+    v_ll: "Prediction of new specimens", v_ll_k: "k-fold ({k} parts, {wdh} repetitions): mean log-likelihood per held-back specimen – higher = better",
+    v_unter5: "Share below {s5}", v_unter5_k: "held-back specimens below the predicted 5 % fractile – expected ≈ 5 %",
+    v_unter95: "Share below {s95}", v_unter95_k: "… below the governing value (lower confidence bound) – expected at most 5 %",
+    v_split: "Random split {a} / {b}", v_split_k: "split {n}× anew: how often does the test part not fit the fit (KS test, α = 5 %)? Expected ≈ 5 %, warning above 10 %",
+    v_loo: "Influence of single specimens", v_loo_k: "Leave-one-out: largest change of {s95} when a single specimen is missing – warning above 5 %",
+    v_boot: "Bootstrap range of {s5}", v_boot_k: "{n} samples with replacement, 90 % range. ✓ if {s95} lies below it (the calculation is then on the safe side)",
+    v_gof: "Goodness-of-fit test", v_gof_k: "Anderson-Darling with parametric bootstrap ({n}×) – a formally valid p-value although the parameters come from the same data",
+    v_gruppen: "Leave out groups ({spalte})", v_gruppen_k: "each group predicted from all others (KS test, Holm-corrected) – do all fit?",
+    v_besser: "◀ better", v_abgelehnt: "rejected", v_nicht_abgelehnt: "not rejected",
+    v_gruppen_wert: "{k} of {n} do not fit", v_alle_passen: "all {n} fit",
+    tab_kfold: "k-fold", tab_loo: "Leave-one-out", tab_split: "Random split", tab_boot: "Bootstrap",
+    tab_gof: "Goodness of fit", tab_gruppen: "Leave out groups",
+    erk_kfold: "<b>What happens?</b> The series is split at random into {k} parts. Each part is held back once, the distribution is fitted to the rest, and the held-back part is predicted with it; all of this {wdh}× with a new split. <b>How to read it?</b> The P-P plot shows each held-back specimen's predicted probability of failure against the observed share. If the points lie on the diagonal, the distribution predicts new specimens correctly. The lower end (small probability of failure) matters most – that is where the 5 % fractile lies.",
+    erk_loo: "<b>What happens?</b> Each specimen is left out once and the fit is repeated without it. <b>How to read it?</b> Each point shows by how many percent the governing value {s95} changes when exactly this specimen is missing. Points far from the zero line are influential single specimens – often the smallest values. Worth checking whether it is an outlier or a test error (hover shows the specimen's details).",
+    erk_split: "<b>What happens?</b> The classic split into training and test data: {a} % of the specimens for fitting, {b} % for checking, {n}× with a new random split. <b>How to read it?</b> The histogram shows, per split, which share of the test part fell below the predicted 5 % fractile. If most of it is around 5 %, the fractile is right. In addition, each split checks whether the test part as a whole fits the fit (KS test); the overview shows the share of rejections.",
+    erk_boot: "<b>What happens?</b> {n} new samples of the same size are drawn from the series – with replacement, so some specimens appear twice and others not at all – and each is fitted again. <b>How to read it?</b> The spread shows how precisely the results are determined by these data, without any formula. The dashed line is the governing value {s95} from the formula; if it lies left of the 5 % point of the bootstrap distribution, the formula is on the safe side.",
+    erk_gof: "<b>What happens?</b> The A² in the results table is only a comparison measure, not a test – the parameters come from the same data. Here {n} samples are simulated from the fitted distribution, fitted the same way, and their A² computed. <b>How to read it?</b> If the observed A² (line) lies among the simulated values, the distribution fits. If it lies far to the right (p < 0.05), the distribution is rejected. Large series detect even small deviations.",
+    erk_gruppen: "<b>What happens?</b> Each group (value of the column “{spalte}”) is left out completely once; the distribution is fitted to all other groups and the left-out group is predicted with it. <b>How to read it?</b> “fits” means the group looks like a new sample from the same population. If single groups do not fit, pooling them with the others is questionable. Median / prediction &lt; 1: the group is weaker than predicted.",
+    pp_titel: "P-P plot of the held-back specimens", pp_x: "predicted probability of failure", pp_y: "observed share",
+    diagonale: "ideal", loo_titel: "Change of {s95} without this specimen", loo_y: "change [%]",
+    loo_auswahl: "Shown: {n} randomly chosen of {gesamt} specimens.",
+    loo_spanne: "{art}: {s95} between {min} and {max} N/mm² (jackknife standard error {se} N/mm²).",
+    split_titel: "Share below {s5} in the test part, per split", split_x: "share [%]", haeufigkeit: "count",
+    erwartet5: "expected 5 %",
+    boot_titel: "Bootstrap distribution of {s5}", boot_kenngroesse: "Quantity", boot_anpassung: "Fit",
+    boot_analytisch: "{s95} (formula)",
+    gof_titel: "{art}: A² of the simulated samples", gof_beobachtet: "observed",
+    gof_zeile: "observed A² = {a2}, p {p}",
+    gr_gruppe: "Group", gr_unter5: "below {s5}", gr_median: "median / prediction", gr_p: "p (Holm)",
+    gr_passt: "✓ fits", gr_passt_nicht: "⚠ does not fit",
+    gr_zu_klein: "{n} group(s) with fewer than 3 measurements not checked.",
+    valid_fuss: "All fits use the same functions as the diagrams and the settings above. The random seed is fixed: same input, same result. ✓/⚠ are based on a binomial test (fractiles) or the thresholds stated – a guide, not a verdict in the sense of a standard.",
+    valid_umrechnung: " The values converted to the target area are checked.",
+    gv_titel: "Group comparison (Kruskal–Wallis + Dunn)",
+    gv_hinweis: "One test for all groups at once: is the strength level the same everywhere? Kruskal–Wallis checks whether any group differs at all; the Dunn test then shows which pairs differ. Rank-based – no distribution assumption, robust against outliers. Different test areas only after conversion (“Test area” above).",
+    gv_gruppen: "Groups", gv_modus_serien: "visible series", gv_modus_spalte: "split one series",
+    gv_spalte: "split by", gv_korrektur: "Correction", gv_korrektur_titel: "Correction of the p-values for many pairwise comparisons",
+    gv_holm: "Holm", gv_bonferroni: "Bonferroni", gv_start: "Compare", gv_spalte_waehlen: "– choose column –",
+    fehler_gv_zu_wenig: "At least two groups with 3 measurements each are needed.",
+    fehler_gv_flaeche: "The groups have different test areas – differences would then come from the size effect alone. Choose a target under “Test area” above.",
+    fehler_gv_spalte: "Please choose a column to split by.",
+    hinweis_gv_doppelt: "{n} measurement(s) belong to more than one series – the groups are then not independent and the result is only partly valid.",
+    gv_flaeche_umgerechnet: "All groups are converted to {flaeche}.",
+    gv_schritt1: "1 · Kruskal–Wallis: all groups at once",
+    gv_kw: "H = {h}  ·  degrees of freedom {df}  ·  N = {n}  ·  p {p}",
+    gv_kw_ja: "At least one group differs in level.",
+    gv_kw_nein: "No difference in level detectable – according to this test all groups may be evaluated together.",
+    gv_schritt2: "2 · Dunn: which groups differ?",
+    gv_buchstaben: "Letters", gv_mittelrang: "mean rank", gv_median: "Median",
+    gv_buchstaben_erkl: "Same letter = no detectable difference, can be pooled. No shared letter = the level differs (α = 5 %, {korr} correction). “a” is the group with the highest median.",
+    gv_anlegen: "Create series from “{b}”",
+    gv_matrix: "Dunn test, adjusted p-values",
+    gv_unterschied: "differ", gv_kein_unterschied: "no difference detectable",
+    gv_grenze: "Dunn compares only the level, not the scatter: two groups with the same median can have a very different m. The shape is checked by the Anderson-Darling test under “Combine datasets”.",
+    gv_zu_klein: "Not included (fewer than 3 measurements): {liste}", gv_gekuerzt: "Only the {n} largest groups compared.",
+    pruefflaeche: "Test area", keine_umrechnung: "no conversion", ring: "ring",
+    pruefflaeche_titel: "Convert measurements per ring size with σ·(A0/A1)^(1/m) to a common test area (eq. 2.46)",
+    umgerechnet_auf: "converted to {flaeche}", original: "original",
+    faktor: "factor", s95_original: "{s95} orig.",
+    hinweis_umr_keine_spalte: "“{name}”: no column “Ring size”/“Ringgröße” – test area not converted.",
+    hinweis_umr_ring_unbekannt: "“{name}”: ring size “{ring}” not readable – not converted.",
+    hinweis_umr_zu_wenig: "“{name}”: ring size {ring} has only {n} measurement(s) – m cannot be fitted, series not converted.",
+    hinweis_umr_m: "“{name}”: no valid m for ring size {ring} – not converted.",
+    hinweis_umr_wenig: "“{name}”: ring size {ring} has only {n} measurements – m, and with it the conversion factor, is uncertain.",
+    fuss_flaeche: " Test area: measurements converted per ring size with σ·(A0/A1)^(1/m) to {flaeche} (eq. 2.46); m from the Weibull fit of each ring size. " +
+      "Areas per Table 2.5: DIN EN 1288-2 240,000 mm², otherwise π·r1² (circle inside the load ring). Only valid for Weibull-distributed data with uniformly distributed surface flaws. " +
+      "The log-normal values are the fit to the converted measurements; dash-dotted: line before conversion.",
+    keine_daten: "No data loaded – please upload an Excel file (top left).",
+    fehler_standard_fehlt: "The example data “{datei}” could not be loaded.",
+    verteilung: "Distribution", lognormal: "Log-normal", beide: "Both",
+    darstellung: "Layout", ueberlagert: "Overlaid", je_serie: "Per series",
+    weibull_methode: "Weibull method", plotpositionen: "Plotting positions", konfidenz: "Confidence",
+    lognormal_mus: "Log-normal μ, s", design: "Theme", auto: "Auto", hell: "Light", dunkel: "Dark",
+    auto_titel: "Follow the operating system setting", sprache: "Language",
+    tudelft: "TU Delft Method 1",
+    tudelft_titel: "Method 1, Hazen, one-sided 95 %, log-normal by regression – reproduces the open-GLASSlab calculation",
+    pruefserien: "Test series", plus_serie: "+ Series",
+    teilen: "Split selected series by …",
+    teilen_titel: "Split the selected series into one series per value of this column",
+    hinweis_filter: "Click a series to edit its filters below. Filters combine like in the Konfigurator: AND across columns, OR within a column.",
+    serie_bearbeiten: "Edit series", name_platzhalter: "Series name",
+    anzeige: "Display", messpunkte: "Data points", gerade: "Fitted line",
+    band: "Confidence band", fraktile: "5 % fractiles", gleichung: "Line equation",
+    hover_angaben: "Details shown on hover",
+    ansichten: "Saved views", ansicht_laden: "– Load view –",
+    ansicht_speichern: "Save current view …", loeschen: "Delete",
+    ansicht_name: "Name of the view:", ansicht_loeschen_frage: "Delete view “{name}”?",
+    ansicht_export: "Save to file …", ansicht_import: "Load from file …",
+    ansichten_hinweis: "The list is stored in “Viewer_Ansichten.json” next to the viewer. “Save to file” stores the current view (series, filters, settings) as a separate .json file – to resume later or pass on. The Excel data itself is not included.",
+    ansicht_datei_geladen: "View loaded from “{datei}”.",
+    ansicht_datei_fehlt: "This view was created with {dateien} – not loaded right now. Add it under “Data” so that all series are correct.",
+    ansicht_datei_ungueltig: "“{datei}” is not a saved view of Glass Strength Lab.",
+    kennwerte: "Results", csv: "Export CSV",
+    ohne_namen: "(unnamed)", ausblenden: "Hide", einblenden: "Show",
+    duplizieren: "Duplicate", entfernen: "Remove", kopie: " (copy)",
+    keine_serie: "No series – click “+ Series”.", auswahl_aufheben: "Clear selection",
+    alle_messwerte: "All measurements", serie_n: "Series {n}",
+    teilen_zu_wenig: "“{spalte}” has fewer than two values with at least 3 measurements in this series – nothing to split.",
+    teilen_zu_viele: "“{spalte}” has {n} values – showing the {max} most frequent.",
+    rechnet: "calculating …",
+    status: "{methode} · Plotting positions: {pos} · Confidence: {konf} · Log-normal: {ln}",
+    fehlgeschlagen: "Calculation failed: {text}",
+    start_fehlgeschlagen: "Start failed: {text}",
+    zu_wenig: "“{name}”: only {n} measurement(s) – not evaluated.",
+    serie_fehler: "“{name}”: {text}",
+    art_weibull: "Two-parameter Weibull distribution", art_lognormal: "Log-normal distribution",
+    massgebend: "governing", fraktil_linie: "5 % fractile",
+    legende_band: "Confidence band", legende_original: "Line before conversion",
+    x_achse: "Fracture stress σ  [N/mm²]", y_achse: "Probability of failure P<sub>f</sub>  [%]",
+    plotly_fehlt: "Plotly could not be loaded – is there an internet connection?",
+    keine_auswertbar: "No evaluable series visible (at least 3 measurements per series).",
+    pruefserie: "Test series", delta: "Δ to series 1", zu_wenige: "too few measurements",
+    sigma_vert: "σ fit",
+    fuss: "{s95} = governing value: lower bound of the confidence interval of the 5 % fractile. " +
+      "A² (Anderson-Darling) compares how well the two distributions fit – smaller = better fit. " +
+      "σx = standard deviation of the measured values, σ fit = standard deviation of the fitted distribution. " +
+      "Calculated after open-GLASSlab (TU Delft) and EN 12603; ",
+    fuss_regression: "log-normal μ, s here by regression on the probability plot as in TU Delft's open-GLASSlab.",
+    fuss_moment: "the log-normal distribution by the method of moments.",
+    csv_kopf: ["Distribution", "Test series", "n", "m or μ", "β or s", "R² %", "σf,min", "σf,max", "X",
+      "σk,0.05", "σk,0.05;0.95", "σk,0.05 upper bound", "σx (measured values)", "σ (fitted distribution)", "A²", "Target area [cm²]", "Factor", "σk,0.05;0.95 original", "Settings"],
+    csv_datei: "Glass_Strength_Lab_results.csv",
+  },
+};
+
+// Labels of the select lists. The core supplies German; English is defined
+// here, matched by the keys.
+const OPTIONS_EN = {
+  methoden: {m1_ls: "Method 1 – least-squares regression",
+    m2_wls: "Method 2 – weighted least-squares regression (Faucher & Tyson)",
+    m3_glue: "Method 3 – Good Linear Unbiased Estimator (EN 12603)"},
+  plotpositionen: {hazen: "Hazen  P = (i − 0.5)/n", mean: "Mean rank  P = i/(n + 1)",
+    median: "Median rank  P = (i − 0.3)/(n + 0.4)"},
+  seiten: {einseitig: "one-sided 95 %", zweiseitig: "two-sided 95 %"},
+  lognormal_methoden: {moment: "Method of moments",
+    regression: "Regression on the probability plot (TU Delft open-GLASSlab)"},
+};
+
+function t(textKey, values = {}) {
+  const text = TEXTS[LANG][textKey] ?? TEXTS.de[textKey] ?? textKey;
+  return typeof text === "string" ? text.replace(/\{(\w+)\}/g, (_, k) => values[k] ?? "") : text;
+}
+
+// Number with the decimal separator of the chosen language
+const num = (x, decimals) => x == null || !isFinite(x) ? "–"
+  : LANG === "de" ? x.toFixed(decimals).replace(".", ",") : x.toFixed(decimals);
+
+// Fractile symbols: German with comma, English with point
+const symFrac5 = () => LANG === "de" ? "σk,0,05" : "σk,0.05";
+const symFrac95 = () => LANG === "de" ? "σk,0,05;0,95" : "σk,0.05;0.95";
+
+function translateStatic() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll("[data-t]").forEach(e => { e.textContent = t(e.dataset.t); });
+  document.querySelectorAll("[data-t-title]").forEach(e => { e.title = t(e.dataset.tTitle); });
+  document.querySelectorAll("[data-t-placeholder]").forEach(e => { e.placeholder = t(e.dataset.tPlaceholder); });
+  $("sw-sprache").querySelectorAll("button").forEach(b => b.classList.toggle("aktiv", b.dataset.w === LANG));
+}
+
+function fillOptions() {
+  for (const [sel, group, field] of [["sel-methode", "methoden", "methode"],
+      ["sel-pos", "plotpositionen", "plotpositionen"], ["sel-seiten", "seiten", "konfidenz_seiten"],
+      ["sel-lognormal", "lognormal_methoden", "lognormal_methode"]]) {
+    $(sel).innerHTML = "";
+    for (const [k, txt] of Object.entries(DATA[group]))
+      $(sel).append(el("option", {value: k}, LANG === "en" ? (OPTIONS_EN[group][k] || txt) : txt));
+    $(sel).value = Z[field];
+  }
+  fillAreaSelect();
+}
+
+// Target areas come from the data (standard set-ups + ring sizes present)
+const areaText = mm2 => `${num(mm2 / 100, mm2 >= 10000 ? 0 : 2)} cm²`;
+function fillAreaSelect() {
+  const sel = $("sel-flaeche");
+  sel.innerHTML = "";
+  sel.append(el("option", {value: "0"}, t("keine_umrechnung")));
+  for (const z of DATA.zielflaechen || []) sel.append(el("option", {value: String(z.mm2)},
+    `${areaText(z.mm2)} – ${z.norm ? `${z.norm} (${z.ring})` : `${t("ring")} ${z.ring}`}`));
+  // compare as numbers ("240000.0" = "240000"); if the area is not in the data: off
+  const target = parseFloat(Z.zielflaeche) || 0;
+  const match = [...sel.options].find(o => Math.abs(parseFloat(o.value) - target) < 0.01);
+  Z.zielflaeche = match ? match.value : "0";
+  sel.value = Z.zielflaeche;
+}
+const conversionActive = () => parseFloat(Z.zielflaeche) > 0;
+
+function sourceText() {
+  const d = DATA.dateien;
+  if (!d.length) return t("keine_daten");
+  const part = d.length === 1 ? `${d[0].datei}  ·  ${t("blatt", {blatt: d[0].blatt})}` : t("dateien_n", {n: d.length});
+  return `${part}  ·  ${DATA.zeilen.length} ${t("messwerte")}`;
+}
+
+// Status line from the entries currently selected in the select lists
+const selectedText = id => { const s = $(id); return s.selectedIndex >= 0 ? s.options[s.selectedIndex].text : ""; };
+const settingsText = () => t("status", {methode: selectedText("sel-methode"),
+  pos: selectedText("sel-pos"), konf: selectedText("sel-seiten"), ln: selectedText("sel-lognormal")}) +
+  (conversionActive() ? ` · ${t("pruefflaeche")}: ${t("umgerechnet_auf", {flaeche: areaText(parseFloat(Z.zielflaeche))})}` : "");
+
+function hintsText(hints) {
+  return (hints || []).map(h => h.code ? t("hinweis_" + h.code, h)
+    : h.text ? t("serie_fehler", {name: h.name, text: h.text})
+    : t("zu_wenig", {name: h.name, n: h.n})).join("\n");
+}
+
+function setLanguage(lang) {
+  const oldAllLabel = t("alle_messwerte");
+  LANG = lang;
+  try { localStorage.setItem(LANG_STORAGE_KEY, lang); } catch (e) {}
+  // Also translate the unchanged default series; custom names stay as they are
+  Z.serien.forEach(s => { if (s.name === oldAllLabel) s.name = t("alle_messwerte"); });
+  translateStatic();
+  if (!DATA) return;
+  $("quelle").textContent = sourceText();
+  fillOptions();
+  fillColumnSelect();
+  drawFileList();
+  fillViewList(DATA.ansichten);
+  if (RESULT) { $("status").textContent = settingsText(); showMessage(hintsText(RESULT.hinweise)); }
+  drawSeriesList(); drawEditor(); drawDiagrams(); drawTables(); combineShow();
+  validShow(); gcShow(); saveState();
+}
+
+const el = (tag, attrs = {}, ...children) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of children.flat()) if (k != null) e.append(k);
+  return e;
+};
+
+// ---------------------------------------------------------------------------
+// Start-up
+// ---------------------------------------------------------------------------
+async function start() {
+  const response = await fetch("/api/daten");
+  DATA = await response.json();
+  $("quelle").textContent = sourceText();
+  fillColumnSelect();
+  drawFileList();
+
+  restoreState();
+  fillOptions();
+  if (!Z.serien.length) Z.serien.push(newSeries(t("alle_messwerte"), {}));
+  if (!Z.hover.length) Z.hover = DATA.spalten.map(s => s.name).filter(n => HOVER_DEFAULTS.includes(n));
+  Z.serien.forEach(cleanSeries);
+
+  bindControls();
+  fillViewList(DATA.ansichten);
+  // Open a saved view directly: .../#ansicht=Name
+  const target = decodeURIComponent((location.hash.match(/ansicht=([^&]+)/) || [])[1] || "");
+  if (target && DATA.ansichten[target]) { $("sel-ansicht").value = target; loadView(); return; }
+  drawAll();
+}
+
+function newSeries(name, filter, color) {
+  const used = new Set(Z.serien.map(s => s.farbe));
+  color = color || DATA.palette.find(f => !used.has(f)) || DATA.palette[Z.serien.length % DATA.palette.length];
+  return {name, farbe: color, filter: filter || {}, sichtbar: true};
+}
+
+// Ring size in the server's spelling ("40 : 80"). This way older filters and
+// views with "40:80" or "55 / 145" still match.
+function normRing(text) {
+  const m = String(text).match(/(\d+(?:[.,]\d+)?)\s*[\/:]\s*(\d+(?:[.,]\d+)?)/);
+  if (!m) return text;
+  const z = s => String(parseFloat(s.replace(",", ".")));
+  return `${z(m[1])} : ${z(m[2])}`;
+}
+
+// Restrict filters to columns/values that exist in the file
+function cleanFilter(filter) {
+  const out = {};
+  for (const [sp, values] of Object.entries(filter || {})) {
+    const column = DATA.spalten.find(s => s.name === sp);
+    if (!column) continue;
+    const exists = w => column.werte.some(x => x.schluessel === w);
+    const valid = [...new Set(values
+      .map(w => exists(w) || sp !== DATA.ring_spalte ? w : normRing(w))
+      .filter(exists))];
+    if (valid.length) out[sp] = valid;
+  }
+  return out;
+}
+
+function restoreState() {
+  try {
+    const raw = localStorage.getItem(STATE_STORAGE_KEY);
+    if (raw) Object.assign(Z, JSON.parse(raw));
+  } catch (e) { /* continue without a saved state */ }
+}
+function saveState() {
+  try { localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(Z)); } catch (e) {}
+}
+
+// ---------------------------------------------------------------------------
+// Counting (live in the browser)
+// ---------------------------------------------------------------------------
+function rowsMatching(filter, exceptColumn) {
+  const conds = [];
+  DATA.spalten.forEach((sp, i) => {
+    if (sp.name === exceptColumn) return;
+    const w = filter[sp.name];
+    if (w && w.length) conds.push([i, new Set(w)]);
+  });
+  return DATA.zeilen.filter(z => conds.every(([i, set]) => set.has(z[i])));
+}
+
+// Combined series: union of several filters; each measurement counts once
+const partFilters = s => s.vereinigung || [s.filter];
+function seriesRows(s) {
+  if (!s.vereinigung) return rowsMatching(s.filter);
+  const seen = new Set();
+  for (const f of s.vereinigung) for (const z of rowsMatching(f)) seen.add(z);
+  return [...seen];
+}
+function cleanSeries(s) {
+  s.filter = cleanFilter(s.filter);
+  if (s.vereinigung) s.vereinigung = s.vereinigung.map(cleanFilter);
+}
+const seriesForServer = s => ({name: s.name, farbe: s.farbe, filter: s.filter, vereinigung: s.vereinigung});
+
+// ---------------------------------------------------------------------------
+// Controls
+// ---------------------------------------------------------------------------
+function bindControls() {
+  for (const [id, field] of [["sw-art", "art"], ["sw-modus", "modus"]]) {
+    $(id).addEventListener("click", ev => {
+      const w = ev.target.dataset.w; if (!w) return;
+      Z[field] = w; showSwitches(); drawDiagrams(); drawTables(); saveState();
+    });
+  }
+  for (const [id, field] of SELECT_FIELDS) {
+    $(id).value = Z[field];
+    $(id).addEventListener("change", () => { Z[field] = $(id).value; recalculate(); });
+  }
+  $("sw-design").addEventListener("click", ev => { if (ev.target.dataset.w) setTheme(ev.target.dataset.w); });
+  $("sw-sprache").addEventListener("click", ev => {
+    if (ev.target.dataset.w && ev.target.dataset.w !== LANG) setLanguage(ev.target.dataset.w); });
+  SYSTEM_DARK.addEventListener("change", () => { if (THEME === "auto") redrawTheme(); });
+  $("sw-design").querySelectorAll("button").forEach(b => b.classList.toggle("aktiv", b.dataset.w === THEME));
+  $("btn-tudelft").addEventListener("click", () => {
+    Object.assign(Z, {methode: "m1_ls", plotpositionen: "hazen",
+      konfidenz_seiten: "einseitig", lognormal_methode: "regression"});
+    for (const [id, field] of SELECT_FIELDS) $(id).value = Z[field];
+    recalculate(0);
+  });
+  document.querySelectorAll("[data-opt]").forEach(cb => {
+    cb.checked = Z.optionen[cb.dataset.opt] !== false;
+    cb.addEventListener("change", () => {
+      Z.optionen[cb.dataset.opt] = cb.checked; drawDiagrams(); saveState();
+    });
+  });
+  $("btn-neu").addEventListener("click", () => {
+    Z.serien.push(newSeries(t("serie_n", {n: Z.serien.length + 1}), {}));
+    Z.aktiv = Z.serien.length - 1; drawAll();
+  });
+  $("ed-name").addEventListener("input", () => {
+    const s = Z.serien[Z.aktiv]; if (!s) return;
+    s.name = $("ed-name").value; drawSeriesList(); recalculate(600);
+  });
+  $("sel-teilen").addEventListener("change", () => {
+    const column = $("sel-teilen").value; $("sel-teilen").value = "";
+    if (column) splitSeries(column);
+  });
+  $("btn-csv").addEventListener("click", csvExport);
+  $("btn-kombi").addEventListener("click", () => combineCheck());
+  for (const id of ["kombi-a", "kombi-b", "kombi-r"]) $(id).addEventListener("change", () => {
+    Z.kombi = Object.assign(Z.kombi || {}, {a: $("kombi-a").value, b: $("kombi-b").value, r: $("kombi-r").value});
+    saveState();
+    if (COMBINE) combineCheck();
+  });
+  $("btn-valid").addEventListener("click", () => validate());
+  for (const id of ["valid-serie", "valid-k", "valid-split", "valid-gruppe"]) $(id).addEventListener("change", () => validRemember());
+  $("btn-gv").addEventListener("click", () => gcCompare());
+  for (const id of ["gv-modus", "gv-serie", "gv-spalte", "gv-korrektur"]) $(id).addEventListener("change", () => {
+    gcShowFields(); gcRemember();
+  });
+  $("btn-ersetzen").addEventListener("click", () => { uploadMode = "ersetzen"; $("datei-wahl").click(); });
+  $("btn-hinzu").addEventListener("click", () => { uploadMode = "hinzufuegen"; $("datei-wahl").click(); });
+  $("btn-standard").addEventListener("click", () => dataAction("/api/standard_laden", {}, d =>
+    t("ok_standard", {datei: d.dateien[0].datei, n: d.zeilen.length})));
+  $("datei-wahl").addEventListener("change", () => {
+    const file = $("datei-wahl").files[0];
+    $("datei-wahl").value = "";                    // the same file can be chosen again
+    if (file) upload(file, uploadMode);
+  });
+  $("btn-speichern").addEventListener("click", saveView);
+  $("btn-loeschen").addEventListener("click", deleteView);
+  $("sel-ansicht").addEventListener("change", loadView);
+  $("btn-ansicht-export").addEventListener("click", exportView);
+  $("btn-ansicht-import").addEventListener("click", () => $("ansicht-datei").click());
+  $("ansicht-datei").addEventListener("change", () => {
+    const file = $("ansicht-datei").files[0];
+    $("ansicht-datei").value = "";                 // the same file can be chosen again
+    if (file) importView(file);
+  });
+  drawHoverList();
+}
+
+function showSwitches() {
+  for (const [id, field] of [["sw-art", "art"], ["sw-modus", "modus"]])
+    $(id).querySelectorAll("button").forEach(b => b.classList.toggle("aktiv", b.dataset.w === Z[field]));
+}
+
+function drawAll() {
+  showSwitches(); drawSeriesList(); drawEditor(); recalculate(0);
+}
+
+function drawSeriesList() {
+  const list = $("serienliste"); list.innerHTML = "";
+  Z.serien.forEach((s, i) => {
+    const n = seriesRows(s).length;
+    list.append(el("div", {class: `serie${i === Z.aktiv ? " aktiv" : ""}${s.sichtbar ? "" : " versteckt"}`,
+        onclick: () => { Z.aktiv = i; drawSeriesList(); drawEditor(); saveState(); }},
+      el("span", {class: "punkt", style: `background:${displayColor(s.farbe)}`}),
+      el("span", {class: "name", title: s.name}, s.name || t("ohne_namen")),
+      el("span", {class: `n${n < 3 ? " leer" : ""}`}, `n = ${n}`),
+      el("button", {class: "ikon", title: s.sichtbar ? t("ausblenden") : t("einblenden"),
+        onclick: ev => { ev.stopPropagation(); s.sichtbar = !s.sichtbar;
+          drawSeriesList(); drawDiagrams(); drawTables(); saveState(); }},
+        s.sichtbar ? "◉" : "○"),
+      el("button", {class: "ikon", title: t("duplizieren"),
+        onclick: ev => { ev.stopPropagation();
+          Z.serien.splice(i + 1, 0, newSeries(s.name + t("kopie"), JSON.parse(JSON.stringify(s.filter))));
+          Z.aktiv = i + 1; drawAll(); }}, "⧉"),
+      el("button", {class: "ikon weg", title: t("entfernen"),
+        onclick: ev => { ev.stopPropagation(); Z.serien.splice(i, 1);
+          Z.aktiv = Math.max(0, Math.min(Z.aktiv, Z.serien.length - 1)); drawAll(); }}, "✕"),
+    ));
+  });
+  if (!Z.serien.length) list.append(el("div", {class: "hinweis"}, t("keine_serie")));
+  combineFillSelects(); validFillSelects(); gcFillSelects();
+}
+
+function drawEditor() {
+  const s = Z.serien[Z.aktiv];
+  $("editor").style.display = s ? "" : "none";
+  if (!s) return;
+  $("ed-name").value = s.name;
+  $("ed-n").textContent = `n = ${seriesRows(s).length}`;
+
+  const colors = $("ed-farben"); colors.innerHTML = "";
+  for (const f of DATA.palette) colors.append(el("span", {
+    class: `farbe${f === s.farbe ? " gewaehlt" : ""}`, style: `background:${displayColor(f)}`,
+    onclick: () => { s.farbe = f; drawEditor(); drawSeriesList(); drawDiagrams(); drawTables(); saveState(); }}));
+
+  const box = $("ed-filter");
+  const openCols = new Set([...box.querySelectorAll("details[open]")].map(d => d.dataset.spalte));
+  box.innerHTML = "";
+  if (s.vereinigung) {                 // combined series: no filters of its own
+    box.append(el("p", {class: "hinweis"}, t("kombi_serie_info", {teile: (s.teile || []).join(" + ")})));
+    return;
+  }
+  for (const sp of DATA.spalten) {
+    const selected = new Set(s.filter[sp.name] || []);
+    const base = rowsMatching(s.filter, sp.name);
+    const idx = DATA.spalten.indexOf(sp);
+    const counts = {};
+    for (const z of base) counts[z[idx]] = (counts[z[idx]] || 0) + 1;
+
+    const list = el("div", {class: "f-liste"});
+    for (const w of sp.werte) {
+      const n = counts[w.schluessel] || 0;
+      if (!n && !selected.has(w.schluessel)) continue;
+      list.append(el("label", {class: `wert${n ? "" : " aus"}`},
+        el("input", {type: "checkbox", checked: selected.has(w.schluessel),
+          onchange: ev => {
+            const fresh = new Set(s.filter[sp.name] || []);
+            ev.target.checked ? fresh.add(w.schluessel) : fresh.delete(w.schluessel);
+            if (fresh.size) s.filter[sp.name] = [...fresh]; else delete s.filter[sp.name];
+            drawEditor(); drawSeriesList(); recalculate();
+          }}),
+        el("span", {class: "txt", title: w.anzeige}, w.anzeige),
+        el("span", {class: "anz"}, String(n))));
+    }
+    const choiceText = sp.werte.filter(w => selected.has(w.schluessel)).map(w => w.anzeige).join(", ");
+    const detailsEl = el("details", {class: `filter${selected.size ? " gesetzt" : ""}`,
+        "data-spalte": sp.name, open: openCols.has(sp.name)},
+      el("summary", {}, sp.name, el("span", {class: "wahl", title: choiceText}, choiceText)),
+      selected.size ? el("span", {class: "f-leeren", onclick: () => {
+        delete s.filter[sp.name]; drawEditor(); drawSeriesList(); recalculate(); }},
+        t("auswahl_aufheben")) : null,
+      list);
+    box.append(detailsEl);
+  }
+}
+
+function drawHoverList() {
+  const box = $("hover-liste"); box.innerHTML = "";
+  for (const sp of DATA.spalten) box.append(el("label", {class: "wert"},
+    el("input", {type: "checkbox", checked: Z.hover.includes(sp.name), onchange: ev => {
+      Z.hover = ev.target.checked ? [...Z.hover, sp.name] : Z.hover.filter(h => h !== sp.name);
+      recalculate(); }}),
+    el("span", {class: "txt"}, sp.name)));
+}
+
+// Split the selected series into one series per value of a column
+function splitSeries(column) {
+  const s = Z.serien[Z.aktiv]; if (!s) return;
+  if (s.vereinigung) return showMessage(t("kombi_nicht_teilen"));
+  const sp = DATA.spalten.find(x => x.name === column);
+  const idx = DATA.spalten.indexOf(sp);
+  const base = rowsMatching(s.filter, column);
+  const allowed = s.filter[column] ? new Set(s.filter[column]) : null;
+  const counts = {};
+  for (const z of base) counts[z[idx]] = (counts[z[idx]] || 0) + 1;
+  const values = sp.werte.filter(w => (counts[w.schluessel] || 0) >= 3 && (!allowed || allowed.has(w.schluessel)));
+  if (values.length < 2) {
+    showMessage(t("teilen_zu_wenig", {spalte: column}));
+    return;
+  }
+  const max = DATA.palette.length;
+  if (values.length > max) showMessage(t("teilen_zu_viele", {spalte: column, n: values.length, max}));
+  values.sort((a, b) => (counts[b.schluessel] - counts[a.schluessel])).splice(max);
+  values.sort((a, b) => sp.werte.indexOf(a) - sp.werte.indexOf(b));
+  const defaultNames = [TEXTS.de.alle_messwerte, TEXTS.en.alle_messwerte];
+  const prefix = s.name && !defaultNames.includes(s.name) ? s.name + " · " : "";
+  const fresh = values.map((w, j) => ({
+    name: prefix + w.anzeige, farbe: DATA.palette[j % DATA.palette.length], sichtbar: true,
+    filter: Object.assign(JSON.parse(JSON.stringify(s.filter)), {[column]: [w.schluessel]}),
+  }));
+  Z.serien.splice(Z.aktiv, 1, ...fresh);
+  drawAll();
+}
+
+// ---------------------------------------------------------------------------
+// Data: upload, replace, add Excel files
+// ---------------------------------------------------------------------------
+let uploadMode = "ersetzen";
+
+function fillColumnSelect() {
+  const sel = $("sel-teilen");
+  sel.innerHTML = "";
+  sel.append(el("option", {value: ""}, t("teilen")));
+  for (const sp of DATA.spalten) sel.append(el("option", {value: sp.name}, sp.name));
+}
+
+function drawFileList() {
+  const box = $("dateiliste"); box.innerHTML = "";
+  const several = DATA.dateien.length > 1;
+  for (const d of DATA.dateien) box.append(el("div", {class: "datei"},
+    el("span", {class: "name", title: `${d.datei} · ${t("blatt", {blatt: d.blatt})}`}, d.datei),
+    el("span", {class: "n"}, `n = ${d.n}`),
+    several ? el("button", {class: "ikon weg", title: t("datei_entfernen"), onclick: () =>
+      dataAction("/api/datei_entfernen", {datei: d.datei}, fresh =>
+        t("ok_entfernt", {datei: d.datei, n: fresh.zeilen.length}))}, "✕") : null));
+  if (!DATA.dateien.length) box.append(el("div", {class: "hinweis"}, t("keine_daten")));
+  const onlyDefault = DATA.dateien.length === 1 && DATA.dateien[0].datei === DATA.standard;
+  $("btn-standard").disabled = onlyDefault || !DATA.standard_vorhanden;
+}
+
+// Message above the diagram that stays until it is closed
+// (unlike the calculation hints, which are set anew on every run)
+function showInfo(text, err = false) {
+  $("info").innerHTML = "";
+  if (text) $("info").append(el("div", {class: `info${err ? " fehler" : ""}`},
+    el("span", {}, text),
+    el("button", {class: "ikon", title: t("schliessen"), onclick: () => showInfo("")}, "✕")));
+}
+
+function dataErrorText(response, file) {
+  const d = Object.assign({datei: file}, response.details || {});
+  if (Array.isArray(d.blaetter)) d.blaetter = d.blaetter.join(", ");
+  return t("fehler_" + response.fehler_code, d);
+}
+
+function lockButtons(on) {
+  for (const id of ["btn-ersetzen", "btn-hinzu", "btn-standard"]) $(id).disabled = on;
+  if (!on) drawFileList();
+}
+
+async function upload(file, mode) {
+  if (file.size > DATA.max_upload_mb * 1024 * 1024)
+    return showInfo(t("fehler_zu_gross", {mb: DATA.max_upload_mb}), true);
+  showInfo(t("laedt_hoch", {datei: file.name}));
+  lockButtons(true);
+  try {
+    const r = await fetch("/api/hochladen", {method: "POST", body: file,
+      headers: {"Content-Type": "application/octet-stream",
+        "X-Dateiname": encodeURIComponent(file.name), "X-Modus": mode}});
+    const d = await r.json();
+    if (d.fehler_code) return showInfo(dataErrorText(d, file.name), true);
+    if (d.fehler) throw new Error(d.fehler);
+    applyData(d, mode === "hinzufuegen"
+      ? t("ok_hinzu", {datei: file.name, n: d.zeilen.length, k: d.dateien.length})
+      : t("ok_ersetzt", {datei: file.name, n: d.zeilen.length}));
+  } catch (f) {
+    showInfo(t("hochladen_fehler", {text: f.message}), true);
+  } finally {
+    lockButtons(false);
+  }
+}
+
+async function dataAction(path, body, okText) {
+  lockButtons(true);
+  try {
+    const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body)});
+    const d = await r.json();
+    if (d.fehler_code) return showInfo(dataErrorText(d, ""), true);
+    if (d.fehler) throw new Error(d.fehler);
+    applyData(d, okText(d));
+  } catch (f) {
+    showInfo(t("hochladen_fehler", {text: f.message}), true);
+  } finally {
+    lockButtons(false);
+  }
+}
+
+// Take over new data: adapt the series' filters to the columns/values present
+// and report which series changed as a result
+function applyData(fresh, message) {
+  DATA = fresh;
+  const affected = [];
+  for (const s of Z.serien) {
+    const before = JSON.stringify(partFilters(s));
+    cleanSeries(s);
+    if (JSON.stringify(partFilters(s)) !== before) affected.push(s.name);
+  }
+  Z.hover = Z.hover.filter(h => DATA.spalten.some(sp => sp.name === h));
+  if (!Z.hover.length) Z.hover = DATA.spalten.map(s => s.name).filter(n => HOVER_DEFAULTS.includes(n));
+  $("quelle").textContent = sourceText();
+  fillColumnSelect(); drawFileList(); drawHoverList(); fillAreaSelect();
+  drawAll();
+  showInfo([message, affected.length ? t("filter_entfernt", {namen: affected.join(", ")}) : ""]
+    .filter(Boolean).join("\n"));
+}
+
+// ---------------------------------------------------------------------------
+// Combine datasets: AD per series → Pearson → combined series with AD
+// ---------------------------------------------------------------------------
+let COMBINE = null;                 // last check {antwort, a, b} or null
+
+function combineFillSelects() {
+  const k = Z.kombi || {a: "0", b: "1", r: "0.95"};
+  for (const [id, value] of [["kombi-a", k.a], ["kombi-b", k.b]]) {
+    const sel = $(id); sel.innerHTML = "";
+    Z.serien.forEach((s, i) => sel.append(el("option", {value: String(i)}, s.name || t("ohne_namen"))));
+    sel.value = Z.serien[+value] ? value : (id === "kombi-a" ? "0" : String(Math.min(1, Z.serien.length - 1)));
+  }
+  const r = $("kombi-r"); r.innerHTML = "";
+  for (const w of ["0.9", "0.95", "0.99"]) r.append(el("option", {value: w}, `r ≥ ${num(+w, 2)}`));
+  r.value = k.r || "0.95";
+  $("btn-kombi").disabled = Z.serien.length < 2;
+}
+
+async function combineCheck() {
+  const a = Z.serien[+$("kombi-a").value], b = Z.serien[+$("kombi-b").value];
+  // remember the check: it comes back after reloading and with saved views
+  Z.kombi = {a: $("kombi-a").value, b: $("kombi-b").value, r: $("kombi-r").value, aktiv: true};
+  saveState();
+  if (!a || !b || a === b) { COMBINE = {fehler: () => t("kombi_gleich")}; return combineShow(); }
+  try {
+    const r = await fetch("/api/kombinieren", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({serie_a: seriesForServer(a), serie_b: seriesForServer(b),
+        methode: Z.methode, plotpositionen: Z.plotpositionen, konfidenz_seiten: Z.konfidenz_seiten,
+        lognormal_methode: Z.lognormal_methode, zielflaeche_mm2: parseFloat(Z.zielflaeche) || 0})});
+    const d = await r.json();
+    if (d.fehler) throw new Error(d.fehler);
+    COMBINE = d.fehler_code ? {fehler: () => t("fehler_" + d.fehler_code, d.details)} : {antwort: d, a, b};
+  } catch (f) {
+    COMBINE = {fehler: () => t("fehlgeschlagen", {text: f.message})};
+  }
+  combineShow();
+}
+
+const pText = p => p < 0.001 ? "< " + num(0.001, 3) : "= " + num(p, 3);
+// anderson_ksamp caps p at 0.001 … 0.25
+const pCappedText = p => p <= 0.001 ? "≤ " + num(0.001, 3) : p >= 0.25 ? "≥ " + num(0.25, 2) : "= " + num(p, 3);
+
+function combineShow() {
+  const box = $("kombi-ergebnis");
+  box.querySelectorAll(".qq").forEach(q => window.Plotly && Plotly.purge(q));
+  box.innerHTML = "";
+  if (!COMBINE) return;
+  if (COMBINE.fehler) return box.append(el("div", {class: "info fehler"}, el("span", {}, COMBINE.fehler())));
+  const d = COMBINE.antwort, [sa, sb, sk] = d.serien, F = d.flaeche;
+  const threshold = parseFloat($("kombi-r").value) || 0.95;
+  const correlated = d.pearson.r >= threshold;
+  const areaOk = F.gleich;
+  const left = el("div", {});
+
+  // test area
+  const areaMessage = !F.gleich ? t("kombi_flaeche_verschieden")
+    : F.umgerechnet ? t("kombi_flaeche_umgerechnet", {flaeche: areaText(F.ziel_mm2)}) : t("kombi_flaeche_gleich");
+  left.append(el("div", {class: `info${F.gleich ? "" : " fehler"}`}, el("span", {}, areaMessage)));
+  if (F.unbekannt) left.append(el("div", {class: "info fehler"}, el("span", {}, t("kombi_flaeche_unbekannt"))));
+  if (d.hinweise.length) left.append(el("div", {class: "meldung"}, hintsText(d.hinweise)));
+
+  // table of the AD tests (Weibull)
+  const row = (name, s, color) => {
+    const k = s.weibull, ok = k.p_AD >= 0.05;
+    return el("tr", {},
+      el("td", {}, color ? el("span", {class: "punkt", style: `background:${color};display:inline-block;margin-right:7px;vertical-align:-1px`}) : null, name),
+      el("td", {}, String(s.n)), el("td", {}, num(k.lambda, 2)), el("td", {}, num(k.beta, 1)),
+      el("td", {}, num(k.A2, 3)), el("td", {}, num(k.p_AD, 3)),
+      el("td", {class: ok ? "ja" : "nein"}, t(ok ? "kombi_ad_ok" : "kombi_ad_nein")),
+      el("td", {class: "massg"}, num(k.frak5_95, 1)));
+  };
+  const table = rows => el("div", {class: "tab-wrap"}, el("table", {},
+    el("thead", {}, el("tr", {}, el("th", {}, t("pruefserie")), el("th", {}, "n"), el("th", {}, "m"),
+      el("th", {}, "β", el("small", {}, "[N/mm²]")), el("th", {}, "A²"), el("th", {}, "p_AD"),
+      el("th", {}, t("kombi_ad")), el("th", {}, symFrac95(), el("small", {}, "[N/mm²]")))),
+    el("tbody", {}, rows)));
+  const colorOf = s => displayColor(s.farbe);
+  left.append(el("div", {class: "kombi-schritt"}, t("kombi_schritt1")),
+    table([row(COMBINE.a.name, sa, colorOf(COMBINE.a)), row(COMBINE.b.name, sb, colorOf(COMBINE.b))]));
+
+  // Pearson
+  left.append(el("div", {class: "kombi-schritt"}, t("kombi_schritt2")),
+    el("div", {class: "kombi-zeile"}, t("kombi_pearson", {r: num(d.pearson.r, 4), paare: d.pearson.paare, p: pText(d.pearson.p)})),
+    el("div", {class: "kombi-zeile"}, el("span", {class: correlated ? "ja" : "nein"},
+      t(correlated ? "kombi_korr_ja" : "kombi_korr_nein", {s: num(threshold, 2)}))),
+    el("div", {class: "kombi-zeile ergaenzend"},
+      t(d.ad_zwei.p < 0.05 ? "kombi_ergaenzend_ja" : "kombi_ergaenzend_nein", {p: pCappedText(d.ad_zwei.p)})));
+
+  // combined series
+  left.append(el("div", {class: "kombi-schritt"}, t("kombi_schritt3")));
+  if (!areaOk) left.append(el("div", {class: "kombi-zeile"}, el("span", {class: "nein"}, t("kombi_gesperrt_flaeche"))));
+  else if (!correlated) left.append(el("div", {class: "kombi-zeile"}, el("span", {class: "nein"}, t("kombi_gesperrt_korr"))));
+  else left.append(table([row(`${t("kombi_kombiniert")}: ${COMBINE.a.name} + ${COMBINE.b.name}`, sk, null)]),
+    el("div", {class: "aktionen"}, el("button", {class: "primaer", onclick: combineCreateSeries}, t("kombi_anlegen"))));
+
+  // Q-Q plot
+  const qq = el("div", {class: "qq"});
+  box.append(el("div", {class: "kombi-raster"}, left, el("div", {}, qq)));
+  if (!window.Plotly) return;
+  const allValues = [...d.qq.a, ...d.qq.b], lo = Math.min(...allValues) * 0.9, hi = Math.max(...allValues) * 1.1;
+  const axis = title => ({type: "log", title: {text: title, font: {size: 11}}, range: [Math.log10(lo), Math.log10(hi)],
+    gridcolor: css("--gitter"), zeroline: false, showline: true, linecolor: css("--achse"), mirror: true});
+  Plotly.newPlot(qq, [
+    {x: [lo, hi], y: [lo, hi], mode: "lines", line: {color: css("--text-3"), dash: "dash", width: 1},
+      name: t("kombi_diagonale"), hoverinfo: "skip"},
+    {x: d.qq.a, y: d.qq.b, mode: "markers", marker: {size: 5, color: displayColor(COMBINE.a.farbe)},
+      name: "Q-Q", hovertemplate: "%{x:.1f} / %{y:.1f} N/mm²<extra></extra>"}],
+    {title: {text: t("kombi_qq"), font: {size: 12}, x: 0.02, xanchor: "left"},
+     margin: {l: 58, r: 10, t: 34, b: 50}, showlegend: false,
+     paper_bgcolor: css("--flaeche"), plot_bgcolor: css("--flaeche"),
+     font: {color: css("--text"), family: "Segoe UI, system-ui, sans-serif"},
+     separators: LANG === "de" ? ",." : ".,",
+     xaxis: axis(`σ ${COMBINE.a.name} [N/mm²]`), yaxis: axis(`σ ${COMBINE.b.name} [N/mm²]`)},
+    {responsive: true, displaylogo: false, modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d"]});
+}
+
+function combineCreateSeries() {
+  const {a, b} = COMBINE;
+  const name = `${a.name} + ${b.name}`;
+  const copy = x => JSON.parse(JSON.stringify(x));
+  const fresh = newSeries(name, {});
+  fresh.vereinigung = copy([...partFilters(a), ...partFilters(b)]);
+  fresh.teile = [...(a.teile || [a.name]), ...(b.teile || [b.name])];
+  Z.serien.push(fresh);
+  Z.aktiv = Z.serien.length - 1;
+  drawAll();
+  showInfo(t("kombi_angelegt", {name}));
+}
+
+// ---------------------------------------------------------------------------
+// Shared by validation and group comparison
+// ---------------------------------------------------------------------------
+const DISTRIBUTIONS = ["weibull", "lognormal"];
+const distShort = dist => dist === "weibull" ? "Weibull" : t("lognormal");
+const distColor = dist => css(dist === "weibull" ? "--akzent" : "--zweit");
+const percent = (x, st = 1) => x == null || !isFinite(x) ? "–" : num(100 * x, st) + " %";
+const verdict = ok => el("span", {class: ok ? "ok" : "warn"}, ok ? "✓" : "⚠");
+const dotSpan = color => el("span", {class: "punkt", style: `background:${color};display:inline-block;margin-right:7px;vertical-align:-1px`});
+const settingsForServer = () => ({methode: Z.methode, plotpositionen: Z.plotpositionen,
+  konfidenz_seiten: Z.konfidenz_seiten, lognormal_methode: Z.lognormal_methode,
+  zielflaeche_mm2: parseFloat(Z.zielflaeche) || 0});
+const html = text => String(text).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+
+function fillSeriesOptions(sel, value) {
+  sel.innerHTML = "";
+  Z.serien.forEach((s, i) => sel.append(el("option", {value: String(i)}, s.name || t("ohne_namen"))));
+  sel.value = Z.serien[+value] ? String(value) : "0";
+}
+function fillColumnOptions(sel, empty, value) {
+  sel.innerHTML = "";
+  sel.append(el("option", {value: ""}, empty));
+  for (const sp of DATA.spalten) sel.append(el("option", {value: sp.name}, sp.name));
+  sel.value = DATA.spalten.some(sp => sp.name === value) ? value : "";
+}
+
+// Small diagrams of the validation and the group comparison
+function smallPlot(div, traces, o) {
+  const axis = (text, extra) => Object.assign({title: {text, font: {size: 11}}, gridcolor: css("--gitter"),
+    zeroline: false, showline: true, linecolor: css("--achse"), mirror: true}, extra || {});
+  Plotly.newPlot(div, traces, {
+    title: {text: o.titel, font: {size: 12}, x: 0.02, xanchor: "left"},
+    margin: Object.assign({l: 58, r: 12, t: 34, b: 84}, o.margin), paper_bgcolor: css("--flaeche"), plot_bgcolor: css("--flaeche"),
+    font: {color: css("--text"), family: "Segoe UI, system-ui, sans-serif"},
+    separators: LANG === "de" ? ",." : ".,",
+    legend: {orientation: "h", y: -0.3, x: 0, font: {size: 11}},
+    xaxis: axis(o.x, o.xaxis), yaxis: axis(o.y, o.yaxis), hovermode: "closest",
+    barmode: "overlay", shapes: o.shapes || [], annotations: o.annotations || []}, PLOT_CONFIG);
+}
+// vertical line at x (data value) over the full height, with label
+const vline = (x, color, dash = "dash") => ({type: "line", x0: x, x1: x, yref: "paper", y0: 0, y1: 1,
+  line: {color: color, width: 1.5, dash}});
+
+// ---------------------------------------------------------------------------
+// Validation of the fit: k-fold, leave-one-out, random split,
+// bootstrap, goodness-of-fit test, leave out groups
+// ---------------------------------------------------------------------------
+let VALID = null;                 // last validation {antwort} or {fehler}
+let validRunNr = 0;
+const VALID_TABS = ["kfold", "loo", "split", "boot", "gof", "gruppen"];
+
+function validFillSelects() {
+  const v = Z.valid || {};
+  fillSeriesOptions($("valid-serie"), v.serie ?? Z.aktiv);
+  const k = $("valid-k"); k.innerHTML = "";
+  for (const w of ["5", "10"]) k.append(el("option", {value: w}, `k = ${w}`));
+  k.value = v.k || "5";
+  const sp = $("valid-split"); sp.innerHTML = "";
+  for (const a of [50, 60, 70, 75, 80, 90]) sp.append(el("option", {value: String(a)}, `${a} / ${100 - a}`));
+  sp.value = ["50", "60", "70", "75", "80", "90"].includes(v.split) ? v.split : "70";
+  fillColumnOptions($("valid-gruppe"), t("valid_keine_gruppe"), v.gruppe || "");
+  $("btn-valid").disabled = !Z.serien.length;
+}
+
+function validRemember(active) {
+  const previous = Z.valid || {};
+  Z.valid = {serie: $("valid-serie").value, k: $("valid-k").value, split: $("valid-split").value,
+    gruppe: $("valid-gruppe").value,
+    tab: previous.tab || "kfold", aktiv: active ?? !!previous.aktiv};
+  saveState();
+}
+
+async function validate() {
+  validRemember(true);
+  const s = Z.serien[+$("valid-serie").value];
+  if (!s) return;
+  const runId = ++validRunNr;
+  $("btn-valid").disabled = true;
+  const box = $("valid-ergebnis");
+  box.querySelectorAll(".v-plot").forEach(p => window.Plotly && Plotly.purge(p));
+  box.innerHTML = "";
+  box.append(el("div", {class: "status"}, t("valid_rechnet")));
+  try {
+    const r = await fetch("/api/validieren", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(Object.assign({serie: seriesForServer(s), k: +$("valid-k").value,
+        split_anteil: +$("valid-split").value / 100, gruppen_spalte: $("valid-gruppe").value, hover_spalten: Z.hover}, settingsForServer()))});
+    const d = await r.json();
+    if (runId !== validRunNr) return;                  // outdated
+    if (d.fehler) throw new Error(d.fehler);
+    VALID = d.fehler_code ? {fehler: () => t("fehler_" + d.fehler_code, d.details)} : {antwort: d};
+  } catch (f) {
+    if (runId !== validRunNr) return;
+    VALID = {fehler: () => t("fehlgeschlagen", {text: f.message})};
+  }
+  $("btn-valid").disabled = !Z.serien.length;
+  validShow();
+}
+
+// rows of the overview: [check, explanation, cell content per distribution]
+function validRows(d) {
+  const A = d.arten, s5 = symFrac5(), s95 = symFrac95();
+  const better = A.weibull.kfold.ll >= A.lognormal.kfold.ll ? "weibull" : "lognormal";
+  const share = Math.round(100 * d.split_anteil);
+  const rows = [
+    [t("v_ll"), t("v_ll_k", {k: d.k, wdh: d.wdh}), dist => [num(A[dist].kfold.ll, 3),
+      dist === better ? el("span", {class: "besser"}, "  " + t("v_besser")) : null]],
+    [t("v_unter5", {s5}), t("v_unter5_k"), dist => {
+      const u = A[dist].kfold.unter5; return [percent(u.anteil), "  ", verdict(u.p >= 0.05)]; }],
+    // only too many is critical: the lower bound may be undercut less often
+    [t("v_unter95", {s95}), t("v_unter95_k"), dist => {
+      const u = A[dist].kfold.unter95; return [percent(u.anteil), "  ", verdict(!(u.anteil > 0.05 && u.p < 0.05))]; }],
+    [t("v_split", {a: share, b: 100 - share}), t("v_split_k", {n: d.split_n}), dist => {
+      const s = A[dist].split; return [percent(s.abgelehnt, 0), "  ", verdict(s.abgelehnt <= 0.10)]; }],
+    [t("v_loo"), t("v_loo_k", {s95}), dist => {
+      const l = A[dist].loo; return [percent(l.max_abs / 100, 1), "  ", verdict(l.max_abs <= 5)]; }],
+    [t("v_boot", {s5}), t("v_boot_k", {n: d.boot_n, s95}), dist => {
+      const q = A[dist].bootstrap.frak5.q;
+      return [`${num(q["5"], 1)} – ${num(q["95"], 1)} N/mm²`, "  ", verdict(A[dist].voll.frak5_95 <= q["5"])]; }],
+    [t("v_gof"), t("v_gof_k", {n: d.gof_n}), dist => {
+      const g = A[dist].gof;
+      return [`p ${pText(g.p)} · ${t(g.p >= 0.05 ? "v_nicht_abgelehnt" : "v_abgelehnt")}`, "  ", verdict(g.p >= 0.05)]; }],
+  ];
+  if (d.gruppen_spalte) rows.push([t("v_gruppen", {spalte: d.gruppen_spalte}), t("v_gruppen_k"), dist => {
+    const g = A[dist].gruppen;
+    if (g.fehler_code) return [t("fehler_" + g.fehler_code, g)];
+    const k = g.gruppen.filter(x => x.p_holm < 0.05).length;
+    return [k ? t("v_gruppen_wert", {k, n: g.gruppen.length}) : t("v_alle_passen", {n: g.gruppen.length}), "  ", verdict(!k)];
+  }]);
+  return rows;
+}
+
+function explanation(textKey, values) {
+  const e = el("div", {class: "v-erklaerung"});
+  const safe = Object.fromEntries(Object.entries(values || {}).map(([k, v]) => [k, html(v)]));
+  e.innerHTML = t(textKey, safe);
+  return e;
+}
+
+function validShow() {
+  const box = $("valid-ergebnis");
+  box.querySelectorAll(".v-plot").forEach(p => window.Plotly && Plotly.purge(p));
+  box.innerHTML = "";
+  if (!VALID) return;
+  if (VALID.fehler) return box.append(el("div", {class: "info fehler"}, el("span", {}, VALID.fehler())));
+  const d = VALID.antwort;
+  if (d.hinweise.length) box.append(el("div", {class: "meldung"}, hintsText(d.hinweise)));
+
+  box.append(el("div", {class: "tab-titel"}, `${t("valid_ueberblick")}: ${d.name}  (n = ${d.n})`));
+  const header = el("tr", {}, el("th", {}, t("valid_pruefung")),
+    DISTRIBUTIONS.map(dist => el("th", {}, dotSpan(distColor(dist)), distShort(dist))));
+  const body = validRows(d).map(([name, small, cell]) => el("tr", {},
+    el("td", {}, name, el("small", {}, small)), DISTRIBUTIONS.map(dist => el("td", {class: "urteil"}, cell(dist)))));
+  box.append(el("div", {class: "tab-wrap"}, el("table", {class: "v-tabelle"},
+    el("thead", {}, header), el("tbody", {}, body))));
+
+  const tabs = VALID_TABS.filter(x => x !== "gruppen" || d.gruppen_spalte);
+  const tab = tabs.includes(Z.valid && Z.valid.tab) ? Z.valid.tab : "kfold";
+  box.append(el("div", {class: "umschalter v-tabs"}, tabs.map(x => el("button", {class: x === tab ? "aktiv" : "",
+    onclick: () => { Z.valid.tab = x; saveState(); validShow(); }}, t("tab_" + x)))));
+  const content = el("div", {});
+  box.append(content);
+  if (window.Plotly) VALID_TAB_RENDERERS[tab](d, content);
+  const footer = el("div", {class: "fuss"});
+  footer.innerHTML = t("valid_fuss") + (d.umrechnung ? t("valid_umrechnung") : "");
+  box.append(footer);
+}
+
+const VALID_TAB_RENDERERS = {
+  kfold(d, box) {
+    box.append(explanation("erk_kfold", {k: d.k, wdh: d.wdh}));
+    const [full, zoom] = [el("div", {class: "v-plot"}), el("div", {class: "v-plot"})];
+    box.append(el("div", {class: "v-raster"}, full, zoom));
+    const traces = limit => [{x: [0, limit], y: [0, limit], mode: "lines", name: t("diagonale"), hoverinfo: "skip",
+      line: {color: css("--text-3"), dash: "dash", width: 1}},
+      ...DISTRIBUTIONS.map(dist => {
+        const pp = d.arten[dist].kfold.pp, n = pp.length;
+        return {x: pp, y: pp.map((_, i) => (i + 0.5) / n), mode: "markers", name: distShort(dist),
+          marker: {size: 5, color: distColor(dist), opacity: 0.75},
+          hovertemplate: "%{x:.3f} → %{y:.3f}<extra>" + distShort(dist) + "</extra>"};
+      })];
+    smallPlot(full, traces(1), {titel: t("pp_titel"), x: t("pp_x"), y: t("pp_y"),
+      xaxis: {range: [0, 1]}, yaxis: {range: [0, 1]}});
+    // lower range enlarged: this is where the 5 % fractile lies
+    smallPlot(zoom, traces(0.2), {titel: `${t("pp_titel")} · 0–20 %`, x: t("pp_x"), y: t("pp_y"),
+      xaxis: {range: [0, 0.2]}, yaxis: {range: [0, 0.2]},
+      shapes: [vline(0.05, css("--linie-5"), "dot")]});
+  },
+  loo(d, box) {
+    const s95 = symFrac95();
+    box.append(explanation("erk_loo", {s95}));
+    const div = el("div", {class: "v-plot"});
+    box.append(div);
+    smallPlot(div, DISTRIBUTIONS.map(dist => {
+      const l = d.arten[dist].loo;
+      return {x: l.sigma, y: l.delta, customdata: l.info, mode: "markers", name: distShort(dist),
+        marker: {size: 6, color: distColor(dist), opacity: 0.7},
+        hovertemplate: "<b>σ = %{x:.1f} N/mm²</b><br>%{y:+.2f} %<br>%{customdata}<extra>" + distShort(dist) + "</extra>"};
+    }), {titel: t("loo_titel", {s95}), x: t("x_achse"), y: t("loo_y"),
+      xaxis: {type: "log"}, yaxis: {zeroline: true, zerolinecolor: css("--achse")}});
+    for (const dist of DISTRIBUTIONS) {
+      const l = d.arten[dist].loo;
+      box.append(el("div", {class: "kombi-zeile"}, t("loo_spanne", {art: distShort(dist), s95,
+        min: num(l.frak_min, 1), max: num(l.frak_max, 1), se: num(l.se, 2)})));
+    }
+    if (d.arten.weibull.loo.auswahl) box.append(el("p", {class: "hinweis"}, t("loo_auswahl", {n: d.loo_max, gesamt: d.n})));
+  },
+  split(d, box) {
+    const a = Math.round(100 * d.split_anteil);
+    box.append(explanation("erk_split", {a, b: 100 - a, n: d.split_n}));
+    const div = el("div", {class: "v-plot"});
+    box.append(div);
+    const n_test = d.arten.weibull.split.n_test;
+    // every share is k/n_test: bins exactly that wide, otherwise gaps appear
+    const xbins = n_test <= 100 ? {start: -50 / n_test, size: 100 / n_test} : undefined;
+    smallPlot(div, DISTRIBUTIONS.map(dist => ({x: d.arten[dist].split.anteil5.map(v => 100 * v), type: "histogram",
+      name: distShort(dist), xbins, marker: {color: distColor(dist)}, opacity: 0.6,
+      hovertemplate: "%{x} %: %{y}<extra>" + distShort(dist) + "</extra>"})),
+      {titel: t("split_titel", {s5: symFrac5()}), x: t("split_x"), y: t("haeufigkeit"),
+       shapes: [vline(5, css("--linie-5"))],
+       annotations: [{x: 5, yref: "paper", y: 1, text: t("erwartet5"), showarrow: false, xanchor: "left",
+         yanchor: "top", font: {size: 11, color: css("--linie-5")}}]});
+  },
+  boot(d, box) {
+    const s5 = symFrac5(), s95 = symFrac95();
+    box.append(explanation("erk_boot", {n: d.boot_n, s95}));
+    const div = el("div", {class: "v-plot"});
+    box.append(div);
+    smallPlot(div, [
+      ...DISTRIBUTIONS.map(dist => ({x: d.arten[dist].bootstrap.frak5.werte, type: "histogram", name: distShort(dist),
+        marker: {color: distColor(dist)}, opacity: 0.6, nbinsx: 40})),
+      ...DISTRIBUTIONS.map(dist => ({x: [null], y: [null], mode: "lines", name: `${t("boot_analytisch", {s95})} · ${distShort(dist)}`,
+        line: {color: distColor(dist), dash: "dash", width: 1.5}}))],
+      {titel: t("boot_titel", {s5}), x: `${s5} [N/mm²]`, y: t("haeufigkeit"),
+       shapes: DISTRIBUTIONS.map(dist => vline(d.arten[dist].voll.frak5_95, distColor(dist)))});
+    // scatter of all characteristic values
+    const quantities = dist => dist === "weibull"
+      ? [["p1", "m", 2], ["p2", "β [N/mm²]", 1]] : [["p1", "μ", 3], ["p2", "s", 4]];
+    const rows = DISTRIBUTIONS.flatMap(dist => [...quantities(dist), ["frak5", `${s5} [N/mm²]`, 1], ["frak5_95", `${s95} [N/mm²]`, 1]]
+      .map(([k, name, st]) => { const b = d.arten[dist].bootstrap[k];
+        return el("tr", {}, el("td", {}, dotSpan(distColor(dist)), `${distShort(dist)}: ${name}`),
+          el("td", {class: "massg"}, num(b.voll, st)), ["5", "50", "95"].map(q => el("td", {}, num(b.q[q], st))));
+      }));
+    box.append(el("div", {class: "tab-wrap", style: "margin-top:10px"}, el("table", {},
+      el("thead", {}, el("tr", {}, el("th", {}, t("boot_kenngroesse")), el("th", {}, t("boot_anpassung")),
+        ["5 %", "50 %", "95 %"].map(q => el("th", {}, "Bootstrap", el("small", {}, q))))),
+      el("tbody", {}, rows))));
+  },
+  gof(d, box) {
+    box.append(explanation("erk_gof", {n: d.gof_n}));
+    const divs = DISTRIBUTIONS.map(() => el("div", {class: "v-plot"}));
+    box.append(el("div", {class: "v-raster"}, divs));
+    DISTRIBUTIONS.forEach((dist, i) => {
+      const g = d.arten[dist].gof;
+      smallPlot(divs[i], [{x: g.sim, type: "histogram", name: "A²", nbinsx: 40, marker: {color: distColor(dist)}, opacity: 0.6,
+        showlegend: false}],
+        {titel: `${t("gof_titel", {art: distShort(dist)})}<br><span style="font-size:11px">${t("gof_zeile", {a2: num(g.a2, 3), p: pText(g.p)})}</span>`,
+         x: "A²", y: t("haeufigkeit"), shapes: [vline(g.a2, css("--text"), "solid")],
+         annotations: [{x: g.a2, yref: "paper", y: 1, text: t("gof_beobachtet"), showarrow: false, xanchor: "left",
+           yanchor: "top", font: {size: 11}}], margin: {t: 50}});
+    });
+  },
+  gruppen(d, box) {
+    box.append(explanation("erk_gruppen", {spalte: d.gruppen_spalte}));
+    const s5 = symFrac5();
+    for (const dist of DISTRIBUTIONS) {
+      const g = d.arten[dist].gruppen;
+      box.append(el("div", {class: "tab-titel"}, dotSpan(distColor(dist)), distShort(dist)));
+      if (g.fehler_code) { box.append(el("div", {class: "info fehler"}, el("span", {}, t("fehler_" + g.fehler_code, g)))); continue; }
+      const rows = [...g.gruppen].sort((a, b) => a.p_holm - b.p_holm).map(x => el("tr", {},
+        el("td", {}, x.gruppe), el("td", {}, String(x.n)), el("td", {}, percent(x.unter5)),
+        el("td", {}, num(x.median_verh, 2)), el("td", {}, pText(x.p_holm).replace(/^= /, "")),
+        el("td", {class: x.p_holm < 0.05 ? "nein" : "ja"}, t(x.p_holm < 0.05 ? "gr_passt_nicht" : "gr_passt"))));
+      box.append(el("div", {class: "tab-wrap"}, el("table", {},
+        el("thead", {}, el("tr", {}, el("th", {}, t("gr_gruppe")), el("th", {}, "n"),
+          el("th", {}, t("gr_unter5", {s5})), el("th", {}, t("gr_median")), el("th", {}, t("gr_p")), el("th", {}, ""))),
+        el("tbody", {}, rows))));
+      if (g.zu_klein) box.append(el("p", {class: "hinweis"}, t("gr_zu_klein", {n: g.zu_klein})));
+    }
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Group comparison: Kruskal–Wallis for all groups, then Dunn pairwise
+// ---------------------------------------------------------------------------
+let GC = null;                    // {antwort, quelle, spalte} or {fehler}
+let gcRunNr = 0;
+
+function gcFillSelects() {
+  const g = Z.gv || {};
+  const m = $("gv-modus"); m.innerHTML = "";
+  m.append(el("option", {value: "serien"}, t("gv_modus_serien")), el("option", {value: "spalte"}, t("gv_modus_spalte")));
+  m.value = g.modus || "serien";
+  fillSeriesOptions($("gv-serie"), g.serie ?? Z.aktiv);
+  fillColumnOptions($("gv-spalte"), t("gv_spalte_waehlen"), g.spalte || "");
+  const k = $("gv-korrektur"); k.innerHTML = "";
+  for (const w of ["holm", "bonferroni"]) k.append(el("option", {value: w}, t("gv_" + w)));
+  k.value = g.korrektur || "holm";
+  gcShowFields();
+}
+
+function gcShowFields() {
+  const column = $("gv-modus").value === "spalte";
+  $("gv-serie-feld").style.display = column ? "" : "none";
+  $("gv-spalte-feld").style.display = column ? "" : "none";
+}
+
+function gcRemember(active) {
+  Z.gv = {modus: $("gv-modus").value, serie: $("gv-serie").value, spalte: $("gv-spalte").value,
+    korrektur: $("gv-korrektur").value, aktiv: active ?? !!(Z.gv && Z.gv.aktiv)};
+  saveState();
+}
+
+async function gcCompare() {
+  gcRemember(true);
+  const mode = $("gv-modus").value, column = $("gv-spalte").value;
+  const body = Object.assign({modus: mode, korrektur: $("gv-korrektur").value}, settingsForServer());
+  let source;
+  if (mode === "serien") {
+    source = Z.serien.map((s, i) => ({s, i})).filter(x => x.s.sichtbar);
+    body.serien = source.map(x => Object.assign(seriesForServer(x.s), {index: x.i}));
+  } else {
+    source = Z.serien[+$("gv-serie").value];
+    if (!source) return;
+    if (!column) { GC = {fehler: () => t("fehler_gv_spalte")}; return gcShow(); }
+    Object.assign(body, {serie: seriesForServer(source), spalte: column});
+  }
+  const runId = ++gcRunNr;
+  try {
+    const r = await fetch("/api/gruppenvergleich", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body)});
+    const d = await r.json();
+    if (runId !== gcRunNr) return;
+    if (d.fehler) throw new Error(d.fehler);
+    GC = d.fehler_code ? {fehler: () => t("fehler_" + d.fehler_code, d.details)} : {antwort: d, quelle: source, spalte: column};
+  } catch (f) {
+    if (runId !== gcRunNr) return;
+    GC = {fehler: () => t("fehlgeschlagen", {text: f.message})};
+  }
+  gcShow();
+}
+
+function gcShow() {
+  const box = $("gv-ergebnis");
+  box.querySelectorAll(".gv-matrix").forEach(p => window.Plotly && Plotly.purge(p));
+  box.innerHTML = "";
+  if (!GC) return;
+  if (GC.fehler) return box.append(el("div", {class: "info fehler"}, el("span", {}, GC.fehler())));
+  const d = GC.antwort, left = el("div", {});
+  if (d.flaeche.umgerechnet) left.append(el("div", {class: "info"},
+    el("span", {}, t("gv_flaeche_umgerechnet", {flaeche: areaText(d.flaeche.ziel_mm2)}))));
+  if (d.flaeche.unbekannt) left.append(el("div", {class: "info fehler"}, el("span", {}, t("kombi_flaeche_unbekannt"))));
+  const hints = [hintsText(d.hinweise),
+    d.zu_klein.length ? t("gv_zu_klein", {liste: d.zu_klein.map(z => `${z.name} (n = ${z.n})`).join(", ")}) : "",
+    d.gekuerzt ? t("gv_gekuerzt", {n: d.gruppen.length}) : ""].filter(Boolean).join("\n");
+  if (hints) left.append(el("div", {class: "meldung"}, hints));
+
+  // 1. Kruskal–Wallis
+  const differs = d.kw.p < d.alpha;
+  left.append(el("div", {class: "kombi-schritt"}, t("gv_schritt1")),
+    el("div", {class: "kombi-zeile"}, t("gv_kw", {h: num(d.kw.H, 2), df: d.kw.df, n: d.kw.N, p: pText(d.kw.p)})),
+    el("div", {class: "kombi-zeile"}, el("span", {class: differs ? "nein" : "ja"},
+      t(differs ? "gv_kw_ja" : "gv_kw_nein"))));
+
+  // 2. Dunn: groups with letters
+  const color = g => d.modus === "serien" && GC.quelle.find(x => x.i === g.index)
+    ? displayColor(GC.quelle.find(x => x.i === g.index).s.farbe) : null;
+  const rows = d.gruppen.map(g => el("tr", {},
+    el("td", {}, color(g) ? dotSpan(color(g)) : null, g.name), el("td", {}, String(g.n)),
+    el("td", {}, num(g.median, 1)), el("td", {}, num(g.mittelrang, 1)),
+    el("td", {class: "buchstabe"}, g.buchstaben)));
+  left.append(el("div", {class: "kombi-schritt"}, t("gv_schritt2")),
+    el("div", {class: "tab-wrap"}, el("table", {},
+      el("thead", {}, el("tr", {}, el("th", {}, t("gr_gruppe")), el("th", {}, "n"),
+        el("th", {}, t("gv_median"), el("small", {}, "[N/mm²]")), el("th", {}, t("gv_mittelrang")),
+        el("th", {}, t("gv_buchstaben")))),
+      el("tbody", {}, rows))),
+    el("p", {class: "hinweis"}, t("gv_buchstaben_erkl", {korr: t("gv_" + d.korrektur)})));
+  // per letter with several groups: create a series from them
+  const letters = [...new Set(d.gruppen.flatMap(g => g.buchstaben.match(/\[\d+\]|[a-z]/g) || []))].sort();
+  const buttons = letters.map(b => ({b, gruppen: d.gruppen.filter(g => (g.buchstaben.match(/\[\d+\]|[a-z]/g) || []).includes(b))}))
+    .filter(x => x.gruppen.length >= 2);
+  if (buttons.length) left.append(el("div", {class: "aktionen"}, buttons.map(x => el("button", {class: "klein",
+    title: x.gruppen.map(g => g.name).join(" + "), onclick: () => gcCreateSeries(x.gruppen)}, t("gv_anlegen", {b: x.b})))));
+  left.append(el("p", {class: "hinweis"}, t("gv_grenze")));
+
+  const matrix = el("div", {class: "gv-matrix"});
+  const grid = el("div", {class: "kombi-raster"}, left, el("div", {}, matrix));
+  if (d.gruppen.length > 8) grid.style.gridTemplateColumns = "1fr";
+  matrix.style.height = `${Math.max(340, 34 * d.gruppen.length + 160)}px`;
+  box.append(grid);
+  if (window.Plotly) gcMatrix(matrix, d);
+}
+
+function gcMatrix(div, d) {
+  const names = d.gruppen.map(g => g.name), k = names.length;
+  const empty = value => names.map(() => Array(k).fill(value));
+  const z = empty(null), text = empty(""), hover = empty("");
+  for (const p of d.paare) for (const [i, j] of [[p.i, p.j], [p.j, p.i]]) {
+    z[i][j] = p.p < d.alpha ? 1 : 0;
+    text[i][j] = p.p < 0.001 ? "< " + num(0.001, 3) : num(p.p, 3);
+    hover[i][j] = `${names[i]} – ${names[j]}: p ${pText(p.p)} (z = ${num(p.z, 2)})`;
+  }
+  const [sig, nsig] = [css("--sig"), css("--nsig")];
+  // make names with the same content distinct (Plotly merges equal categories)
+  const axisNames = names.map((n, i) => names.indexOf(n) === i ? n : `${n} (${i + 1})`);
+  Plotly.newPlot(div, [
+    {type: "heatmap", x: axisNames, y: axisNames, z, text, hovertext: hover, hoverinfo: "text",
+      texttemplate: "%{text}", textfont: {size: 11, color: css("--text")}, zmin: 0, zmax: 1, showscale: false,
+      colorscale: [[0, nsig], [0.5, nsig], [0.5, sig], [1, sig]], xgap: 2, ygap: 2},
+    ...[[sig, t("gv_unterschied")], [nsig, t("gv_kein_unterschied")]].map(([color, name]) => ({
+      x: [null], y: [null], type: "scatter", mode: "markers", name,
+      marker: {symbol: "square", size: 12, color: color}}))],
+    {title: {text: t("gv_matrix"), font: {size: 12}, x: 0.02, xanchor: "left"},
+     margin: {l: 90, r: 10, t: 34, b: 90}, paper_bgcolor: css("--flaeche"), plot_bgcolor: css("--flaeche"),
+     font: {color: css("--text"), family: "Segoe UI, system-ui, sans-serif"},
+     separators: LANG === "de" ? ",." : ".,",
+     xaxis: {type: "category", showgrid: false, zeroline: false, tickangle: k > 6 ? -40 : 0},
+     yaxis: {type: "category", showgrid: false, zeroline: false, autorange: "reversed"},
+     legend: {orientation: "h", y: -0.18, x: 0, font: {size: 11}}},
+    {responsive: true, displaylogo: false, modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d"]});
+}
+
+// create the groups sharing a letter as a combined series
+function gcCreateSeries(groups) {
+  const {antwort: d, quelle: source, spalte: column} = GC;
+  const copy = x => JSON.parse(JSON.stringify(x));
+  let name, fresh;
+  if (d.modus === "serien") {
+    const seriesList = groups.map(g => (source.find(x => x.i === g.index) || {}).s).filter(Boolean);
+    name = seriesList.map(s => s.name).join(" + ");
+    fresh = newSeries(name, {});
+    fresh.vereinigung = copy(seriesList.flatMap(partFilters));
+    fresh.teile = seriesList.flatMap(s => s.teile || [s.name]);
+  } else {
+    name = `${source.name} · ${groups.map(g => g.name).join(" + ")}`;
+    fresh = newSeries(name, {});
+    fresh.vereinigung = copy(partFilters(source).flatMap(f => groups.map(g => Object.assign({}, f, {[column]: [g.schluessel]}))));
+    fresh.teile = groups.map(g => `${source.name} · ${g.name}`);
+  }
+  Z.serien.push(fresh);
+  Z.aktiv = Z.serien.length - 1;
+  drawAll();
+  showInfo(t("kombi_angelegt", {name}));
+}
+
+// ---------------------------------------------------------------------------
+// Calculation (server)
+// ---------------------------------------------------------------------------
+let timer = null, runNr = 0;
+function recalculate(delay = 250) {
+  saveState();
+  clearTimeout(timer);
+  timer = setTimeout(async () => {
+    const runId = ++runNr;
+    $("status").textContent = t("rechnet");
+    try {
+      const response = await fetch("/api/berechnen", {method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({serien: Z.serien.map(seriesForServer),
+          methode: Z.methode, plotpositionen: Z.plotpositionen,
+          konfidenz_seiten: Z.konfidenz_seiten, lognormal_methode: Z.lognormal_methode,
+          zielflaeche_mm2: parseFloat(Z.zielflaeche) || 0,
+          hover_spalten: Z.hover})});
+      const data = await response.json();
+      if (runId !== runNr) return;                  // outdated
+      if (data.fehler) throw new Error(data.fehler);
+      RESULT = data;
+      showMessage(DATA.zeilen.length ? hintsText(data.hinweise) : "");
+      $("status").textContent = settingsText();
+      drawDiagrams(); drawTables();
+      if (COMBINE || (Z.kombi && Z.kombi.aktiv)) combineCheck();
+      if (Z.gv && Z.gv.aktiv) gcCompare();
+      // validation takes a few seconds: only repeat it if it is already shown
+      if (Z.valid && Z.valid.aktiv) validate();
+    } catch (err) {
+      if (runId !== runNr) return;
+      $("status").textContent = "";
+      showMessage(t("fehlgeschlagen", {text: err.message}));
+    }
+  }, delay);
+}
+
+function showMessage(text) {
+  $("meldung").innerHTML = "";
+  if (text) $("meldung").append(el("div", {class: "meldung"}, text));
+}
+
+// ---------------------------------------------------------------------------
+// Diagrams (Plotly)
+// ---------------------------------------------------------------------------
+const distName = dist => t(dist === "weibull" ? "art_weibull" : "art_lognormal");
+
+function visibleResults() {
+  if (!RESULT) return [];
+  return RESULT.serien.map((e, i) => Object.assign({}, e, {
+    farbe: displayColor(Z.serien[i] ? Z.serien[i].farbe : e.farbe),
+    sichtbar: Z.serien[i] ? Z.serien[i].sichtbar : true,
+  })).filter(e => e.sichtbar && !e.fehler);
+}
+
+function transparent(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Fitted line on the linearised plot: y = a·x + b with x = ln σ.
+// Weibull: a = m, b = −m·ln β.  Log-normal: y = (x − μ)/s, so a = 1/s, b = −μ/s.
+function equation(e, dist) {
+  const k = e[dist].kennwerte;
+  const [a, b] = dist === "weibull"
+    ? [k.lambda, -k.lambda * Math.log(k.beta)]
+    : [1 / k.sd, -k.mu / k.sd];
+  return `y = ${num(a, 3)}·x ${b < 0 ? "−" : "+"} ${num(Math.abs(b), 3)}   (R² = ${num(100 * k.R2, 1)} %)`;
+}
+const PLOT_AXES = {
+  weibull: "x = ln σ,   y = ln(−ln(1 − P<sub>f</sub>))",
+  lognormal: "x = ln σ,   y = Φ<sup>−1</sup>(P<sub>f</sub>)",
+};
+const withEquation = () => Z.optionen.gleichung !== false;
+
+function traces(e, dist, withLegend) {
+  const d = e[dist], A = RESULT.achsen, o = Z.optionen, grp = e.name, sp = [];
+  if (o.band) {
+    sp.push({x: A.sigma_gitter, y: d.band_oben, mode: "lines", line: {width: 0.8, dash: "dot", color: e.farbe},
+      legendgroup: grp, showlegend: false, hoverinfo: "skip"});
+    sp.push({x: A.sigma_gitter, y: d.band_unten, mode: "lines", line: {width: 0.8, dash: "dot", color: e.farbe},
+      fill: "tonexty", fillcolor: transparent(e.farbe, 0.10), legendgroup: grp, showlegend: false, hoverinfo: "skip"});
+  }
+  if (o.gerade && d.original) sp.push({x: A.sigma_gitter, y: d.original.gerade, mode: "lines",
+      line: {width: 1.6, dash: "dashdot", color: e.farbe}, opacity: 0.75,
+      legendgroup: grp, showlegend: false, hoverinfo: "skip"});
+  if (o.gerade) sp.push({x: A.sigma_gitter, y: d.gerade, mode: "lines", line: {width: 2.2, color: e.farbe},
+      legendgroup: grp, showlegend: false, hoverinfo: "skip"});
+  const name = `${e.name} (n = ${e.n})` + (withEquation() ? `<br>${equation(e, dist)}` : "");
+  if (o.punkte) sp.push({x: e.sigma, y: d.y, mode: "markers", name,
+      marker: {size: 6, color: transparent(e.farbe, 0.65), line: {width: 0}},
+      customdata: e.P.map((p, i) => [100 * p, [
+        e.umrechnung ? `${t("original")}: ${num(e.sigma_orig[i], 1)} N/mm² · ${t("ring")} ${e.ring[i]} · ×${num(e.faktor[i], 3)}` : "",
+        e.info[i] || ""].filter(Boolean).join("<br>")]),
+      hovertemplate: "<b>σ = %{x:.1f} N/mm²</b><br>P<sub>f</sub> = %{customdata[0]:.1f} %<br>%{customdata[1]}<extra>" + grp + "</extra>",
+      legendgroup: grp, showlegend: withLegend});
+  else sp.push({x: [null], y: [null], mode: "lines", name,
+      line: {color: e.farbe, width: 2.2}, legendgroup: grp, showlegend: withLegend});
+  if (o.fraktil) {
+    const k = d.kennwerte;
+    sp.push({x: [k.frak5, k.frak5_95], y: [d.y5, d.y5], mode: "markers",
+      marker: {size: [9, 10], color: [e.farbe, css("--flaeche")], line: {width: 2, color: e.farbe}},
+      customdata: [[`σ<sub>${symFrac5().slice(1)}</sub>`],
+        [`σ<sub>${symFrac95().slice(1)}</sub> (${t("massgebend")})`]],
+      hovertemplate: "%{customdata[0]} = <b>%{x:.1f} N/mm²</b><extra>" + grp + "</extra>",
+      legendgroup: grp, showlegend: false});
+  }
+  return sp;
+}
+
+// Legend entries for the line types (neutral grey, only when drawn)
+function lineLegend(dist, seriesList) {
+  const o = Z.optionen, color = css("--text-2"), out = [];
+  const entry = (name, dash) => ({x: [null], y: [null], mode: "lines", name, hoverinfo: "skip",
+    line: {color: color, width: 1.6, dash}, legendgroup: "_linien", showlegend: true});
+  if (o.band) out.push(entry(t("legende_band"), "dot"));
+  if (o.gerade && seriesList.some(e => e[dist].original)) out.push(entry(t("legende_original"), "dashdot"));
+  return out;
+}
+
+function layout(dist, title, plotSeries) {
+  const A = RESULT.achsen, [ylo, yhi] = A.y_grenzen[dist], ticks = A.p_ticks[dist];
+  const shapes = [], annotations = [];
+  if (withEquation()) {
+    // Meaning of x and y in the line equation; the top left of the plot is always free
+    annotations.push({xref: "paper", yref: "paper", x: 0.01, y: 0.99, xanchor: "left", yanchor: "top",
+      text: PLOT_AXES[dist], showarrow: false, font: {size: 11, color: css("--text-2")},
+      bgcolor: css("--flaeche"), borderpad: 3});
+  }
+  if (Z.optionen.fraktil) {
+    const y5 = dist === "weibull" ? Math.log(-Math.log(0.95)) : -1.6448536;
+    shapes.push({type: "line", xref: "paper", x0: 0, x1: 1, y0: y5, y1: y5,
+      line: {color: css("--linie-5"), width: 1}});
+    annotations.push({xref: "paper", x: 1, y: y5, text: t("fraktil_linie"), showarrow: false,
+      xanchor: "right", yanchor: "bottom", font: {size: 11, color: css("--linie-5")}});
+    for (const e of plotSeries) {
+      const k = e[dist].kennwerte;
+      // Log axis: shapes expect data values, annotations log10 values
+      shapes.push({type: "line", x0: k.frak5_95, x1: k.frak5_95, y0: ylo, y1: y5,
+        line: {color: e.farbe, width: 1.4, dash: "dash"}});
+      annotations.push({x: Math.log10(k.frak5_95), y: ylo, text: `<b>${num(k.frak5_95, 1)}</b>`,
+        showarrow: false, yanchor: "bottom", xanchor: "left", font: {size: 11, color: e.farbe}});
+    }
+  }
+  return {
+    title: {text: `<b>${distName(dist)}</b>${conversionActive()
+        ? ` <span style='font-size:12px;font-weight:400'>– ${t("umgerechnet_auf", {flaeche: areaText(parseFloat(Z.zielflaeche))})}</span>` : ""}${title ? "<br><span style='font-size:12px;color:" + css("--text-2") + "'>" + title + "</span>" : ""}`,
+      x: 0.01, xanchor: "left", font: {size: 14}},
+    margin: {l: 62, r: 16, t: title ? 62 : 44, b: 52},
+    paper_bgcolor: css("--flaeche"), plot_bgcolor: css("--flaeche"),
+    font: {color: css("--text"), family: "Segoe UI, system-ui, sans-serif"},
+    separators: LANG === "de" ? ",." : ".,",       // decimal/thousands separator of the hover texts
+    xaxis: {type: "log", title: {text: t("x_achse"), font: {size: 12}},
+      range: [Math.log10(A.sigma_min), Math.log10(A.sigma_max)],
+      tickvals: A.sigma_ticks, ticktext: A.sigma_ticks.map(String),
+      gridcolor: css("--gitter"), zeroline: false, showline: true, linecolor: css("--achse"), mirror: true},
+    yaxis: {title: {text: t("y_achse"), font: {size: 12}},
+      range: [ylo, yhi], tickvals: ticks.y,
+      ticktext: LANG === "de" ? ticks.text : ticks.text.map(s => s.replace(",", ".")),
+      gridcolor: css("--gitter"), zeroline: false, showline: true, linecolor: css("--achse"), mirror: true},
+    legend: {orientation: "h", y: -0.16, x: 0, font: {size: 12}},
+    hovermode: "closest", hoverlabel: {font: {size: 12}},
+    modebar: {bgcolor: "rgba(0,0,0,0)", color: css("--text-3"), activecolor: css("--text")},
+    shapes, annotations,
+  };
+}
+
+const PLOT_CONFIG = {responsive: true, displaylogo: false,
+  modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d"],
+  toImageButtonOptions: {format: "png", scale: 2, filename: "Glass_Strength_Lab"}};
+
+function drawDiagrams() {
+  const box = $("diagramme");
+  box.querySelectorAll(".plot").forEach(p => window.Plotly && Plotly.purge(p));
+  box.innerHTML = "";
+  if (!window.Plotly) {
+    box.append(el("div", {class: "leer-hinweis"}, t("plotly_fehlt")));
+    return;
+  }
+  const seriesList = visibleResults();
+  if (!seriesList.length || !RESULT.achsen) {
+    box.append(el("div", {class: "panel"}, el("div", {class: "leer-hinweis"},
+      t("keine_auswertbar"))));
+    return;
+  }
+  const dists = Z.art === "beide" ? ["weibull", "lognormal"] : [Z.art];
+  const panels = [];
+  if (Z.modus === "ueberlagert") for (const dist of dists) panels.push({art: dist, serien: seriesList, titel: ""});
+  else for (const e of seriesList) for (const dist of dists) panels.push({art: dist, serien: [e],
+    titel: `${e.name}  ·  n = ${e.n}` + (withEquation() ? `  ·  ${equation(e, dist)}` : "")});
+  box.className = panels.length > 1 ? "zwei" : "";
+
+  for (const p of panels) {
+    const div = el("div", {class: "plot"});
+    box.append(el("div", {class: "panel"}, div));
+    const data = p.serien.flatMap(e => traces(e, p.art, Z.modus === "ueberlagert"));
+    data.push(...lineLegend(p.art, p.serien));
+    Plotly.newPlot(div, data, layout(p.art, p.titel, p.serien), PLOT_CONFIG);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tables
+// ---------------------------------------------------------------------------
+// [value key, symbol, unit, decimals, factor] -- a function, because the
+// fractile symbols depend on the language's decimal separator
+function columns(dist) {
+  const form = dist === "weibull"
+    ? [["lambda", "m", "[-]", 2], ["beta", "β", "[N/mm²]", 1]]
+    : [["mu", "μ", "[-]", 3], ["sd", "s", "[-]", 4]];
+  return [["n", "n", "", 0], ...form, ["R2", "R²", "%", 1, 100],
+    ["min", "σf,min", "[N/mm²]", 1], ["max", "σf,max", "[N/mm²]", 1], ["mean", "X", "[N/mm²]", 1],
+    ["frak5", symFrac5(), "[N/mm²]", 1], ["frak5_95", symFrac95(), "[N/mm²]", 1],
+    ["std", "σx", "[N/mm²]", 1], ["std_fit", t("sigma_vert"), "[N/mm²]", 1], ["A2", "A²", "[-]", 3]];
+}
+
+// factor (with several ring sizes as a range, details in the tooltip) and
+// the governing fractile before conversion
+function conversionCells(e, dist) {
+  if (!e.umrechnung) return [el("td", {}, "–"), el("td", {}, "–")];
+  const g = e.umrechnung.gruppen, f = g.map(x => x.faktor);
+  const text = g.length === 1 ? num(f[0], 3) : `${num(Math.min(...f), 3)}–${num(Math.max(...f), 3)}`;
+  const details = g.map(x => `${t("ring")} ${x.ring}: n = ${x.n}, A0 = ${areaText(x.flaeche_mm2)}, m = ${num(x.m, 2)}, ×${num(x.faktor, 3)}`).join("\n");
+  return [el("td", {title: details}, text), el("td", {}, num(e[dist].original.kennwerte.frak5_95, 1))];
+}
+
+function drawTables() {
+  const box = $("tabellen"); box.innerHTML = "";
+  if (!RESULT) return;
+  const rows = RESULT.serien.map((e, i) => Object.assign({}, e, {
+    farbe: displayColor(Z.serien[i] ? Z.serien[i].farbe : e.farbe),
+    sichtbar: Z.serien[i] ? Z.serien[i].sichtbar : true})).filter(e => e.sichtbar);
+  const dists = Z.art === "beide" ? ["weibull", "lognormal"] : [Z.art];
+  for (const dist of dists) {
+    const reference = rows.find(e => !e.fehler);
+    const sp = columns(dist);
+    const conv = conversionActive();
+    box.append(el("div", {class: "tab-titel"}, distName(dist)));
+    const header = el("tr", {}, el("th", {}, t("pruefserie")),
+      sp.map(([, sym, unit]) => el("th", {}, sym, el("small", {}, unit ||" "))),
+      conv ? [el("th", {}, t("faktor"), el("small", {}, "(A0/A1)^(1/m)")),
+             el("th", {}, t("s95_original", {s95: symFrac95()}), el("small", {}, "[N/mm²]"))] : null,
+      el("th", {}, t("delta"), el("small", {}, `${symFrac95()} [N/mm²]`)));
+    const body = rows.map(e => {
+      if (e.fehler) return el("tr", {class: "fehler"}, el("td", {}, e.name),
+        el("td", {}, String(e.n)), el("td", {colspan: sp.length + (conv ? 2 : 0)}, t("zu_wenige")));
+      const k = e[dist].kennwerte;
+      const delta = reference && reference !== e ? k.frak5_95 - reference[dist].kennwerte.frak5_95 : null;
+      return el("tr", {},
+        el("td", {}, el("span", {class: "punkt", style: `background:${e.farbe};display:inline-block;margin-right:7px;vertical-align:-1px`}), e.name),
+        sp.map(([key, , , st, factor]) => el("td", {class: key === "frak5_95" ? "massg" : ""},
+          num(k[key] * (factor || 1), st))),
+        conv ? conversionCells(e, dist) : null,
+        el("td", {class: delta == null ? "" : delta < 0 ? "delta-neg" : "delta-pos"},
+          delta == null ? "–" : (delta > 0 ? "+" : "") + num(delta, 1)));
+    });
+    box.append(el("div", {class: "tab-wrap"}, el("table", {}, el("thead", {}, header), el("tbody", {}, body))));
+  }
+  $("fuss").innerHTML = t("fuss", {s95: symFrac95()}) +
+    t(Z.lognormal_methode === "regression" ? "fuss_regression" : "fuss_moment") +
+    (conversionActive() ? t("fuss_flaeche", {flaeche: areaText(parseFloat(Z.zielflaeche))}) : "");
+}
+
+// CSV for Excel: German with ";" and decimal comma, English with "," and point
+function csvExport() {
+  if (!RESULT) return;
+  const rows = [t("csv_kopf")];
+  const settingsLine = settingsText();
+  const field = (x, st) => x == null ? "" : LANG === "de" ? x.toFixed(st).replace(".", ",") : x.toFixed(st);
+  for (const dist of ["weibull", "lognormal"]) for (const e of RESULT.serien) {
+    if (e.fehler) continue;
+    const k = e[dist].kennwerte, w = dist === "weibull";
+    rows.push([distName(dist), e.name, k.n, field(w ? k.lambda : k.mu, 4), field(w ? k.beta : k.sd, 4),
+      field(100 * k.R2, 2), field(k.min, 2), field(k.max, 2), field(k.mean, 2), field(k.frak5, 4),
+      field(k.frak5_95, 4), field(k.frak5_ob, 4), field(k.std, 4), field(k.std_fit, 4), field(k.A2, 4),
+      e.umrechnung ? field(e.umrechnung.ziel_mm2 / 100, 2) : "",
+      e.umrechnung ? e.umrechnung.gruppen.map(g => `${g.ring}: ${field(g.faktor, 4)}`).join(" | ") : "",
+      e.umrechnung ? field(e[dist].original.kennwerte.frak5_95, 4) : "", settingsLine]);
+  }
+  const sep = LANG === "de" ? ";" : ",";
+  const text = "﻿" + rows.map(z => z.map(f => `"${String(f).replace(/"/g, '""')}"`).join(sep)).join("\r\n");
+  const a = el("a", {href: URL.createObjectURL(new Blob([text], {type: "text/csv;charset=utf-8"})),
+    download: t("csv_datei")});
+  document.body.append(a); a.click(); a.remove();
+}
+
+// ---------------------------------------------------------------------------
+// Saved views
+// ---------------------------------------------------------------------------
+function fillViewList(views) {
+  DATA.ansichten = views || {};
+  const sel = $("sel-ansicht");
+  const before = sel.value;
+  sel.innerHTML = ""; sel.append(el("option", {value: ""}, t("ansicht_laden")));
+  for (const name of Object.keys(DATA.ansichten).sort()) sel.append(el("option", {value: name}, name));
+  sel.value = DATA.ansichten[before] ? before : "";
+  $("btn-loeschen").disabled = !sel.value;
+}
+
+async function saveView() {
+  const name = prompt(t("ansicht_name"), $("sel-ansicht").value || "");
+  if (!name || !name.trim()) return;
+  const view = JSON.parse(JSON.stringify(Z));
+  const r = await fetch("/api/ansicht_speichern", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name: name.trim(), ansicht: view})});
+  const d = await r.json();
+  if (d.fehler) return showMessage(d.fehler);
+  fillViewList(d.ansichten); $("sel-ansicht").value = name.trim(); $("btn-loeschen").disabled = false;
+}
+
+async function deleteView() {
+  const name = $("sel-ansicht").value;
+  if (!name || !confirm(t("ansicht_loeschen_frage", {name}))) return;
+  const r = await fetch("/api/ansicht_loeschen", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name})});
+  fillViewList((await r.json()).ansichten);
+}
+
+function loadView() {
+  const name = $("sel-ansicht").value;
+  $("btn-loeschen").disabled = !name;
+  if (!name) return;
+  applyView(DATA.ansichten[name]);
+}
+
+// Apply a view -- from the list or from a file. Returns: names of the
+// series whose filters did not match the loaded data.
+function applyView(view) {
+  // Set fields that older views do not know to "off" instead of keeping
+  // the state of the previous view
+  Z.zielflaeche = "0"; Z.kombi = null; COMBINE = null;
+  Z.valid = null; VALID = null; Z.gv = null; GC = null;
+  Object.assign(Z, JSON.parse(JSON.stringify(view)));
+  const affected = [];
+  for (const s of Z.serien) {
+    const before = JSON.stringify(partFilters(s));
+    cleanSeries(s);
+    if (JSON.stringify(partFilters(s)) !== before) affected.push(s.name);
+  }
+  Z.aktiv = Math.max(0, Math.min(Z.aktiv || 0, Z.serien.length - 1));
+  if (!Z.lognormal_methode) Z.lognormal_methode = "moment";   // older views
+  for (const [id, field] of SELECT_FIELDS) $(id).value = Z[field];
+  fillAreaSelect();                          // the target area must occur in the current data
+  document.querySelectorAll("[data-opt]").forEach(cb => { cb.checked = Z.optionen[cb.dataset.opt] !== false; });
+  drawHoverList();
+  drawAll();
+  return affected;
+}
+
+// Save the view as its own .json file (with the names of the loaded Excel files)
+function exportView() {
+  const name = $("sel-ansicht").value || `Weibull-Ansicht_${new Date().toISOString().slice(0, 10)}`;
+  const content = {typ: "weibull-viewer-ansicht", version: 1, name,
+    erstellt: new Date().toISOString(), dateien: DATA.dateien.map(d => d.datei),
+    ansicht: JSON.parse(JSON.stringify(Z))};
+  const fileName = name.replace(/[\\/:*?"<>|]+/g, "_").trim() + ".json";
+  const a = el("a", {href: URL.createObjectURL(new Blob([JSON.stringify(content, null, 2)],
+    {type: "application/json"})), download: fileName});
+  document.body.append(a); a.click(); a.remove();
+}
+
+async function importView(file) {
+  let content;
+  try { content = JSON.parse(await file.text()); } catch (e) { content = null; }
+  if (!content || content.typ !== "weibull-viewer-ansicht" || !content.ansicht || !Array.isArray(content.ansicht.serien))
+    return showInfo(t("ansicht_datei_ungueltig", {datei: file.name}), true);
+  $("sel-ansicht").value = ""; $("btn-loeschen").disabled = true;
+  const affected = applyView(content.ansicht);
+  const loaded = DATA.dateien.map(d => d.datei);
+  const missing = (content.dateien || []).filter(n => !loaded.includes(n));
+  showInfo([t("ansicht_datei_geladen", {datei: file.name}),
+    missing.length ? t("ansicht_datei_fehlt", {dateien: missing.map(n => `„${n}“`).join(", ")}) : "",
+    affected.length ? t("filter_entfernt", {namen: affected.join(", ")}) : ""].filter(Boolean).join("\n"),
+    missing.length > 0 || affected.length > 0);
+}
+
+// Plotly loaded from the internet (see loadPlotlyFallback in the head): draw now
+window.plotlyLoaded = () => { if (DATA) drawDiagrams(); };
+translateStatic();          // before loading the data, so that nothing flashes in the wrong language
+start().catch(f => showMessage(t("start_fehlgeschlagen", {text: f.message})));
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+/target/
+/web/pkg/
+**/*.rs.bk
+/CLAUDE.md
+/PLAN.md
+/tools/port_page.py

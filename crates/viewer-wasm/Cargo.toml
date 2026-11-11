@@ -1,0 +1,15 @@
+[package]
+name = "viewer-wasm"
+version = "0.1.0"
+description = "WebAssembly wrapper of Glass Strength Lab: answers the page's /api/... requests in the browser"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+viewer-core = { path = "../viewer-core" }
+serde_json = { version = "1", features = ["preserve_order"] }
+wasm-bindgen = "0.2"
