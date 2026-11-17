@@ -295,13 +295,6 @@
           </div>
         </div>
       </details>
-      <details class="filter" id="global-box">
-        <summary><span data-t="global">Filter für alle Serien …</span><span class="wahl" id="global-wahl"></span></summary>
-        <div class="werkzeug">
-          <p class="hinweis" data-t="global_hinweis"></p>
-          <div id="global-filter"></div>
-        </div>
-      </details>
       <details class="filter" id="massen-box">
         <summary data-t="massen">Serien nach Wert ein-/ausblenden …</summary>
         <div class="werkzeug">
@@ -652,8 +645,10 @@ const TEXTS = {
     teilen_ergebnis: "{n} Serien gebildet.",
     teilen_uebersprungen: " {k} Kombination(en) mit weniger als 3 Messwerten übersprungen ({m} Messwerte).",
     teilen_viele: "Das ergibt {n} Serien. Fortfahren?",
-    massen: "Serien nach Wert zeigen / ausblenden / entfernen …",
-    massen_hinweis: "Wirkt auf alle Serien, deren Filter den gewählten Wert enthält.",
+    massen: "Nach Wert zeigen / ausblenden / entfernen …",
+    massen_hinweis: "Spalten, aus denen die Serien gebildet sind (markiert mit „Serien“), wirken auf ganze Serien. Jede andere Spalte wirkt auf die Messwerte in allen Serien – z. B. „Nur diese zeigen“ bei Ringgröße X behält in jeder Serie nur Ringgröße X. „Alle zeigen“ hebt alles wieder auf.",
+    mw_serien: "Serien", mw_wert_m: "{wert}  ({k} Messwerte)",
+    mw_alles_weg: "Damit wären alle Messwerte ausgeblendet – nicht ausgeführt.",
     mw_spalte: "– Spalte wählen –", mw_wert: "– Wert wählen –", mw_wert_n: "{wert}  ({k} Serien)",
     mw_nur: "Nur diese zeigen", mw_aus: "Ausblenden", mw_weg: "Entfernen", mw_alle: "Alle zeigen",
     mw_keine: "Keine Serie hat diesen Wert im Filter.", mw_weg_frage: "{k} Serie(n) entfernen?",
@@ -661,8 +656,7 @@ const TEXTS = {
     doppelt_daten: "Doppelt: gleiche Filter (gleiche Messwerte) wie „{name}“",
     warnung_doppelt_name: "⚠ Gleicher Name, aber verschiedene Messwerte: {namen}",
     warnung_doppelt_daten: "⚠ Doppelte Serien (gleiche Filter, gleiche Messwerte): {paare}",
-    global: "Filter für alle Serien …", global_aktiv: "Filter für alle Serien: {text}",
-    global_hinweis: "Gilt zusätzlich zu den Filtern jeder Serie, für alle Serien zugleich – z. B. nur eine Ringgröße. Die Serien selbst bleiben unverändert; „Auswahl aufheben“ macht es rückgängig.",
+    global_aktiv: "Messwerte in allen Serien gefiltert: {text}",
     teilen_update: "Serien aktualisieren",
     tab_alle_sichtbaren: "Alle sichtbaren Serien (zusammen)",
     daten_zeigen: "Daten", daten_zeigen_titel: "Messwerte als Tabelle zeigen – markierte Serie oder alle sichtbaren zusammen (zum Kopieren und Speichern für Excel)",
@@ -870,8 +864,10 @@ const TEXTS = {
     teilen_ergebnis: "{n} series created.",
     teilen_uebersprungen: " {k} combination(s) with fewer than 3 measurements skipped ({m} measurements).",
     teilen_viele: "This gives {n} series. Continue?",
-    massen: "Show / hide / remove series by value …",
-    massen_hinweis: "Acts on all series whose filter contains the chosen value.",
+    massen: "Show / hide / remove by value …",
+    massen_hinweis: "Columns the series are built from (marked “series”) act on whole series. Any other column acts on the measurements inside all series – e.g. “Show only these” for ring size X keeps only ring size X in every series. “Show all” undoes everything.",
+    mw_serien: "series", mw_wert_m: "{wert}  ({k} measurements)",
+    mw_alles_weg: "That would hide all measurements – not done.",
     mw_spalte: "– choose column –", mw_wert: "– choose value –", mw_wert_n: "{wert}  ({k} series)",
     mw_nur: "Show only these", mw_aus: "Hide", mw_weg: "Remove", mw_alle: "Show all",
     mw_keine: "No series has this value in its filter.", mw_weg_frage: "Remove {k} series?",
@@ -879,8 +875,7 @@ const TEXTS = {
     doppelt_daten: "Duplicate: same filters (same measurements) as “{name}”",
     warnung_doppelt_name: "⚠ Same name, but different measurements: {namen}",
     warnung_doppelt_daten: "⚠ Duplicate series (same filters, same measurements): {paare}",
-    global: "Filter for all series …", global_aktiv: "Filter for all series: {text}",
-    global_hinweis: "Applies on top of each series' own filters, to all series at once – e.g. only one ring size. The series themselves stay unchanged; “Clear selection” undoes it.",
+    global_aktiv: "Measurements filtered in all series: {text}",
     teilen_update: "Update series",
     tab_alle_sichtbaren: "All visible series (combined)",
     daten_zeigen: "Data", daten_zeigen_titel: "Show the measurements as a table – the selected series or all visible series combined (to copy or save for Excel)",
@@ -1229,9 +1224,7 @@ function bindControls() {
   $("btn-mw-nur").addEventListener("click", () => bulkAction("nur"));
   $("btn-mw-aus").addEventListener("click", () => bulkAction("aus"));
   $("btn-mw-weg").addEventListener("click", () => bulkAction("weg"));
-  $("btn-mw-alle").addEventListener("click", () => {
-    Z.serien.forEach(s => { s.sichtbar = true; }); drawSeriesList(); drawDiagrams(); drawTables(); saveState();
-  });
+  $("btn-mw-alle").addEventListener("click", showAll);
   $("hover-standard").addEventListener("click", () => { Z.hover = hoverDefaults(); drawHoverList(); recalculate(0); });
   $("btn-pg").addEventListener("click", () => pgCheck());
   for (const id of ["pg-a", "pg-b"]) $(id).addEventListener("change", () => {
@@ -1499,67 +1492,45 @@ function createSeriesByColumns() {
   showInfo(t("teilen_ergebnis", {n: kept.length}) + skippedText);
 }
 
-// Filter for all series: like the filters of one series, on top of every series
-function drawGlobalFilter() {
-  const box = $("global-filter");
-  const openCols = new Set([...box.querySelectorAll("details[open]")].map(d => d.dataset.spalte));
-  box.innerHTML = "";
-  const G = Z.global || (Z.global = {});
-  const parts = [];
-  for (const sp of DATA.spalten) {
-    const selected = new Set(G[sp.name] || []);
-    const idx = DATA.spalten.indexOf(sp);
-    const counts = {};
-    for (const z of rowsMatching(G, sp.name)) counts[z[idx]] = (counts[z[idx]] || 0) + 1;
-    const list = el("div", {class: "f-liste"});
-    for (const w of sp.werte) list.append(el("label", {class: `wert${counts[w.schluessel] ? "" : " aus"}`},
-      el("input", {type: "checkbox", checked: selected.has(w.schluessel), onchange: ev => {
-        const fresh = new Set(G[sp.name] || []);
-        ev.target.checked ? fresh.add(w.schluessel) : fresh.delete(w.schluessel);
-        if (fresh.size) G[sp.name] = [...fresh]; else delete G[sp.name];
-        globalChanged(); }}),
-      el("span", {class: "txt", title: w.anzeige}, w.anzeige),
-      el("span", {class: "anz"}, String(counts[w.schluessel] || 0))));
-    const choiceText = sp.werte.filter(w => selected.has(w.schluessel)).map(w => w.anzeige).join(", ");
-    if (selected.size) parts.push(`${sp.name} = ${choiceText}`);
-    box.append(el("details", {class: `filter${selected.size ? " gesetzt" : ""}`, "data-spalte": sp.name, open: openCols.has(sp.name)},
-      el("summary", {}, sp.name, el("span", {class: "wahl", title: choiceText}, choiceText)),
-      selected.size ? el("span", {class: "f-leeren", onclick: () => { delete G[sp.name]; globalChanged(); }},
-        t("auswahl_aufheben")) : null,
-      list));
-  }
-  const text = parts.join(" · ");
-  $("global-wahl").textContent = text;
-  $("global-wahl").title = text;
-  $("global-box").classList.toggle("gesetzt", parts.length > 0);
-  $("global-aktiv").textContent = parts.length ? t("global_aktiv", {text}) : "";
-}
-function globalChanged() {
-  drawGlobalFilter(); drawSeriesList(); drawEditor(); recalculate();
-}
 
 // Bulk actions on the series list: series whose filter contains a value
 function seriesWithValue(column, key) {
   return Z.serien.filter(s => partFilters(s).some(f => (f[column] || []).includes(key)));
 }
+// A column the series are built on (in some series' own filter): the actions
+// act on whole series. Any other column: they act on the measurements inside
+// all series (via the filter for all series, Z.global).
+const isSeriesColumn = column => Z.serien.some(s => partFilters(s).some(f => f[column]));
 function fillValueSelect() {
   const cs = $("mw-spalte"), ws = $("mw-wert");
   const column = cs.value, before = ws.value;
   cs.innerHTML = ""; cs.append(el("option", {value: ""}, t("mw_spalte")));
-  const used = DATA.spalten.filter(sp => Z.serien.some(s => partFilters(s).some(f => f[sp.name])));
-  for (const sp of used) cs.append(el("option", {value: sp.name}, sp.name));
-  cs.value = used.some(sp => sp.name === column) ? column : "";
+  for (const sp of DATA.spalten) cs.append(el("option", {value: sp.name},
+    sp.name + (isSeriesColumn(sp.name) ? ` (${t("mw_serien")})` : "")));
+  cs.value = DATA.spalten.some(sp => sp.name === column) ? column : "";
   ws.innerHTML = ""; ws.append(el("option", {value: ""}, t("mw_wert")));
   const sp = DATA.spalten.find(x => x.name === cs.value);
-  if (sp) for (const w of sp.werte) {
-    const k = seriesWithValue(sp.name, w.schluessel).length;
-    if (k) ws.append(el("option", {value: w.schluessel}, t("mw_wert_n", {wert: w.anzeige, k})));
+  if (!sp) return;
+  const bySeries = isSeriesColumn(sp.name);
+  for (const w of sp.werte) {
+    const k = bySeries ? seriesWithValue(sp.name, w.schluessel).length : w.n;
+    if (k) ws.append(el("option", {value: w.schluessel},
+      t(bySeries ? "mw_wert_n" : "mw_wert_m", {wert: w.anzeige, k})));
   }
   ws.value = [...ws.options].some(o => o.value === before) ? before : "";
 }
 function bulkAction(kind) {
   const column = $("mw-spalte").value, key = $("mw-wert").value;
   if (!column || !key) return;
+  if (!isSeriesColumn(column)) {
+    // measurements: keep only this value, or take it out
+    const sp = DATA.spalten.find(x => x.name === column);
+    const now = Z.global[column] || sp.werte.map(w => w.schluessel);
+    const keep = kind === "nur" ? [key] : now.filter(k => k !== key);
+    if (!keep.length) return showInfo(t("mw_alles_weg"), true);
+    if (keep.length === sp.werte.length) delete Z.global[column]; else Z.global[column] = keep;
+    return globalChanged();
+  }
   const hit = new Set(seriesWithValue(column, key));
   if (!hit.size) return showInfo(t("mw_keine"), true);
   if (kind === "weg") {
@@ -1573,6 +1544,25 @@ function bulkAction(kind) {
     else if (hit.has(s)) s.sichtbar = false;
   }
   drawSeriesList(); drawDiagrams(); drawTables(); saveState();
+}
+function showAll() {
+  Z.serien.forEach(s => { s.sichtbar = true; });
+  Z.global = {};
+  globalChanged();
+}
+// Line under the series header while measurements are filtered for all series
+function drawGlobalFilter() {
+  const parts = Object.entries(Z.global || {}).map(([c, keys]) => {
+    const sp = DATA.spalten.find(x => x.name === c);
+    const shown = sp ? sp.werte.filter(w => keys.includes(w.schluessel)).map(w => w.anzeige) : keys;
+    return `${c} = ${shown.join(", ")}`;
+  });
+  const box = $("global-aktiv"); box.innerHTML = "";
+  if (parts.length) box.append(t("global_aktiv", {text: parts.join(" · ")}), " ",
+    el("span", {class: "f-leeren", onclick: () => { Z.global = {}; globalChanged(); }}, t("auswahl_aufheben")));
+}
+function globalChanged() {
+  drawGlobalFilter(); drawSeriesList(); drawEditor(); recalculate();
 }
 
 // ---------------------------------------------------------------------------
