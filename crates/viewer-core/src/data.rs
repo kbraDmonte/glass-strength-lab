@@ -32,6 +32,8 @@ pub struct Row {
     pub display: Vec<String>,
     /// ring size as displayed ("–" if missing), None without a ring column
     pub ring: Option<String>,
+    /// display text of every column of `Data::header` (for the data table)
+    pub cells: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -53,6 +55,10 @@ pub struct Data {
     pub columns: Vec<Column>,
     pub rows: Vec<Row>,
     pub ring_column: Option<String>,
+    /// all columns (file order, without the strength column)
+    pub header: Vec<String>,
+    /// name of the strength column (of the first file)
+    pub strength_column: String,
 }
 
 impl Data {
@@ -126,7 +132,8 @@ pub fn build_data(files: &[ExcelFile]) -> Data {
             disp.push(d);
         }
         let ring = ring_column.as_ref().map(|rc| display(m.get(rc)));
-        rows.push(Row { sigma: m.sigma, keys, display: disp, ring });
+        let cells = header.iter().map(|k| display(m.get(k))).collect();
+        rows.push(Row { sigma: m.sigma, keys, display: disp, ring, cells });
     }
     let columns = filter_columns.iter().zip(buckets).map(|(name, (order, map))| {
         let mut values: Vec<ColumnValue> = order.iter()
@@ -137,6 +144,8 @@ pub fn build_data(files: &[ExcelFile]) -> Data {
     Data {
         files: files.iter().map(|f| (f.file_name.clone(), f.sheet.clone(), f.measurements.len(), f.hash.clone())).collect(),
         columns, rows, ring_column,
+        strength_column: files.first().map(|f| f.strength_column.clone()).unwrap_or_default(),
+        header,
     }
 }
 

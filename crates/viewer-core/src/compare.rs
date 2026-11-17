@@ -227,3 +227,58 @@ pub fn group_comparison(data: &Data, req: &Value) -> Value {
         "hinweise": hints,
     })
 }
+
+/// One series' points against the fitted line of another series, on the
+/// probability paper of each distribution: vertical distances of the points
+/// to the line (what least squares minimises for method 1), the strength
+/// ratio at equal probability of failure, and a Kolmogorov–Smirnov test of
+/// the points against the distribution fitted to the line series.
+pub fn points_vs_line(data: &Data, req: &Value) -> Value {
+    let (settings, target) = read_settings(req);
+    let mut parts = Vec::new();
+    for key in ["serie_a", "serie_b"] {
+        let series = req.get(key).cloned().unwrap_or(json!({}));
+        let name = series_name(&series);
+        let w = series_values(data, &series, target, settings.method, settings.positions);
+        if w.rows.len() < 3 {
+            return json!({"fehler_code": "komb_zu_wenig", "details": {"name": name, "n": w.rows.len()}});
+        }
+        parts.push((name, w));
+    }
+    let fits = match (evaluate(&parts[0].1.sigma, &settings), evaluate(&parts[1].1.sigma, &settings)) {
+        (Ok(a), Ok(b)) => [a, b],
+        (Err(text), _) | (_, Err(text)) =>
+            return json!({"fehler_code": "komb_rechnung", "details": {"name": "", "text": text}}),
+    };
+    let r = |v: &[f64], d: usize| v.iter().map(|x| round_to(*x, d)).collect::<Vec<_>>();
+    let mut out = serde_json::Map::new();
+    for (key, fa, fb) in [("weibull", &fits[0].0, &fits[1].0), ("lognormal", &fits[0].1, &fits[1].1)] {
+        let n = fb.n as f64;
+        let line_a: Vec<f64> = fb.x.iter().map(|&x| fa.line_y(x)).collect();
+        let res: Vec<f64> = fb.y.iter().zip(&line_a).map(|(y, l)| y - l).collect();
+        let rms = |v: &mut dyn Iterator<Item = f64>| (v.map(|e| e * e).sum::<f64>() / n).sqrt();
+        let rms_a = rms(&mut res.iter().copied());
+        let rms_b = rms(&mut fb.x.iter().zip(&fb.y).map(|(&x, y)| y - fb.line_y(x)));
+        // ln σ of the point minus ln σ on A's line at the same probability
+        let ln_ratio: f64 = fb.x.iter().zip(&fb.y).map(|(&x, &y)| x - (y - fa.intercept) / fa.slope).sum::<f64>() / n;
+        let cdf: Vec<f64> = fb.sigma.iter().map(|&s| fa.cdf(s)).collect();
+        let d = glass_stats::ks::ks_statistic(&cdf);
+        out.insert(key.into(), json!({
+            "a": {"steigung": fa.slope, "achse": fa.intercept, "sigma": r(&fa.sigma, 4), "y": r(&fa.y, 6),
+                  "kennwerte": result_values(fa)},
+            "b": {"steigung": fb.slope, "achse": fb.intercept, "sigma": r(&fb.sigma, 4), "y": r(&fb.y, 6),
+                  "linie_a": r(&line_a, 6), "kennwerte": result_values(fb)},
+            "rms_a": rms_a, "rms_b": rms_b, "mittel": res.iter().sum::<f64>() / n,
+            "verhaeltnis": ln_ratio.exp(),
+            "ks": {"D": d, "p": glass_stats::ks::ks_pvalue(d, fb.n)},
+        }));
+    }
+    let mut set = areas(data, &parts[0].1, target);
+    set.extend(areas(data, &parts[1].1, target));
+    let mut hints = with_name(&parts[0].1.hints, &parts[0].0);
+    hints.extend(with_name(&parts[1].1.hints, &parts[1].0));
+    out.insert("namen".into(), json!([parts[0].0, parts[1].0]));
+    out.insert("flaeche".into(), area_info(&set, target));
+    out.insert("hinweise".into(), json!(hints));
+    Value::Object(out)
+}

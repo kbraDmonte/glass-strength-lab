@@ -9,6 +9,7 @@ pub mod compare;
 pub mod data;
 pub mod results;
 pub mod state;
+pub mod table;
 pub mod validation;
 pub mod excel;
 pub mod text;

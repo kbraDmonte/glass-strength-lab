@@ -190,6 +190,26 @@
   .datei .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .datei .n{font-variant-numeric:tabular-nums;color:var(--text-2);font-size:12px}
   .status{font-size:12px;color:var(--text-3);min-height:18px}
+  /* --- Series tools: many series, duplicates, split, bulk actions --- */
+  #serienliste{max-height:420px;overflow-y:auto;scrollbar-width:thin}
+  .serie .doppelt{color:var(--warn);font-weight:700}
+  .serien-warnung{font-size:12px;color:var(--warn);margin:0 0 6px;white-space:pre-line}
+  .werkzeug{padding:6px 9px 9px}
+  .werkzeug select{width:100%;margin-top:4px}
+  .reihe{display:inline-block;min-width:18px;text-align:center;font-size:11px;font-weight:700;
+         color:#fff;background:var(--akzent);border-radius:9px;padding:0 5px}
+  .name-zeile{display:flex;gap:6px}
+  .name-zeile input{flex:1;min-width:0}
+  button.an{background:var(--akzent-hell);border-color:var(--akzent-rand);color:var(--akzent-text)}
+  /* --- Data table (dialog) --- */
+  dialog.tabelle{width:min(1200px,96vw);max-height:90vh;padding:14px;border:1px solid var(--rand);
+         border-radius:var(--radius);background:var(--flaeche);color:var(--text)}
+  dialog.tabelle::backdrop{background:rgba(0,0,0,.45)}
+  dialog.tabelle .tab-scroll{overflow:auto;max-height:calc(90vh - 120px);margin-top:10px}
+  dialog.tabelle th{position:sticky;top:0;background:var(--flaeche);cursor:pointer;user-select:none}
+  dialog.tabelle th,dialog.tabelle td{text-align:left}
+  dialog.tabelle td.zahl{text-align:right}
+  .pg-plot{width:100%;height:440px}
 
   /* --- Table --- */
   .tab-wrap{overflow-x:auto}
@@ -257,16 +277,43 @@
 
     <div class="karte">
       <h2><span data-t="pruefserien">Prüfserien</span> <span class="rechts"><button class="klein" id="btn-neu" data-t="plus_serie">+ Serie</button></span></h2>
+      <div class="serien-warnung" id="serien-warnung"></div>
       <div id="serienliste"></div>
-      <div class="aktionen">
-        <select id="sel-teilen" data-t-title="teilen_titel"></select>
-      </div>
+      <details class="filter" id="teilen-box">
+        <summary data-t="teilen">Serien bilden nach …</summary>
+        <div class="werkzeug">
+          <p class="hinweis" data-t="teilen_hinweis"></p>
+          <div class="f-liste" id="teilen-spalten"></div>
+          <div class="aktionen">
+            <button class="klein primaer" id="btn-teilen" data-t="teilen_start">Serien bilden</button>
+            <button class="klein" id="btn-teilen-leeren" data-t="auswahl_aufheben">Auswahl aufheben</button>
+          </div>
+        </div>
+      </details>
+      <details class="filter" id="massen-box">
+        <summary data-t="massen">Serien nach Wert ein-/ausblenden …</summary>
+        <div class="werkzeug">
+          <p class="hinweis" data-t="massen_hinweis"></p>
+          <select id="mw-spalte"></select>
+          <select id="mw-wert"></select>
+          <div class="aktionen">
+            <button class="klein" id="btn-mw-nur" data-t="mw_nur">Nur diese zeigen</button>
+            <button class="klein" id="btn-mw-aus" data-t="mw_aus">Ausblenden</button>
+            <button class="klein" id="btn-mw-weg" data-t="mw_weg">Entfernen</button>
+            <button class="klein" id="btn-mw-alle" data-t="mw_alle">Alle zeigen</button>
+          </div>
+        </div>
+      </details>
       <p class="hinweis" data-t="hinweis_filter">Klick auf eine Serie öffnet ihre Filter unten.</p>
     </div>
 
     <div class="karte" id="editor">
-      <h2><span data-t="serie_bearbeiten">Serie bearbeiten</span> <span class="rechts" id="ed-n"></span></h2>
-      <input type="text" id="ed-name" data-t-placeholder="name_platzhalter">
+      <h2><span data-t="serie_bearbeiten">Serie bearbeiten</span> <span class="rechts"><span id="ed-n"></span>
+        <button class="klein" id="btn-daten" data-t="daten_zeigen" data-t-title="daten_zeigen_titel">Daten</button></span></h2>
+      <div class="name-zeile">
+        <input type="text" id="ed-name" data-t-placeholder="name_platzhalter">
+        <button class="klein" id="btn-autoname" data-t="autoname" data-t-title="autoname_titel">Auto</button>
+      </div>
       <div class="farben" id="ed-farben"></div>
       <div id="ed-filter"></div>
     </div>
@@ -283,6 +330,7 @@
       <details class="filter" style="margin-top:10px">
         <summary data-t="hover_angaben">Angaben beim Überfahren eines Punkts</summary>
         <div class="f-liste" id="hover-liste"></div>
+        <span class="f-leeren" id="hover-standard" data-t="hover_standard">Standard</span>
       </details>
     </div>
 
@@ -347,8 +395,28 @@
       </div>
       <div id="kombi-ergebnis"></div>
     </div>
+    <div class="karte" style="margin-top:14px">
+      <h2 data-t="pg_titel">Punkte gegen Ausgleichsgerade</h2>
+      <p class="hinweis" data-t="pg_hinweis"></p>
+      <div class="kombi-auswahl">
+        <div class="feld"><label data-t="pg_linie">Gerade von</label><select id="pg-a"></select></div>
+        <div class="feld"><label data-t="pg_punkte">Punkte von</label><select id="pg-b"></select></div>
+        <div class="feld"><label>&nbsp;</label><button class="primaer" id="btn-pg" data-t="pg_start">Anzeigen</button></div>
+      </div>
+      <div id="pg-ergebnis"></div>
+    </div>
   </section>
 </main>
+
+<dialog class="tabelle" id="tabelle-dialog">
+  <h2><span id="tab-titel"></span> <span class="rechts">
+    <button class="klein" id="btn-tab-kopieren" data-t="tab_kopieren" data-t-title="tab_kopieren_titel">Für Excel kopieren</button>
+    <button class="klein" id="btn-tab-csv" data-t="tab_csv">CSV</button>
+    <button class="klein" id="btn-tab-csv-alle" data-t="tab_csv_alle" data-t-title="tab_csv_alle_titel">CSV aller sichtbaren Serien</button>
+    <button class="ikon" id="btn-tab-zu" data-t-title="schliessen">✕</button></span></h2>
+  <div class="hinweis" id="tab-info"></div>
+  <div class="tab-scroll" id="tab-inhalt"></div>
+</dialog>
 
 <script>
 "use strict";
@@ -359,9 +427,9 @@
 let DATA = null;            // /api/daten
 let RESULT = null;         // last /api/berechnen response
 const STATE_STORAGE_KEY = "weibull_viewer_zustand";
-const HOVER_DEFAULTS = ["ISO number", "ISO-Nummer", "Position", "Air/Tin", "Luft/Zinn",
-  "Direction", "Himmelsrichtung", "Floor", "Linear flaws in load ring",
-  "Lineare Fehler im Lastring", "Remark", "Bemerkung", "Damage", "Schädigung"];
+// Columns shown on hover by default (if present in the data; English or German header)
+const HOVER_DEFAULTS = ["ISO number", "ISO-Nummer", "Air/Tin", "Luft/Zinn", "Position"];
+const hoverDefaults = () => DATA.spalten.map(s => s.name).filter(n => HOVER_DEFAULTS.includes(n));
 
 let Z = {
   serien: [],
@@ -375,6 +443,7 @@ let Z = {
   zielflaeche: "0",            // test-area conversion: target area in mm² as text, "0" = off
   optionen: {punkte: true, gerade: true, band: true, fraktil: true, gleichung: true},
   hover: [],
+  namensspalten: [],            // columns for "create series" and automatic names, in order
 };
 
 const SELECT_FIELDS = [["sel-methode", "methode"], ["sel-pos", "plotpositionen"],
@@ -415,7 +484,7 @@ function redrawTheme() {
   $("sw-design").querySelectorAll("button").forEach(b => b.classList.toggle("aktiv", b.dataset.w === THEME));
   if (!DATA) return;
   drawSeriesList(); drawEditor(); drawDiagrams(); drawTables(); combineShow();
-  validShow(); gcShow();
+  validShow(); gcShow(); pgShow();
 }
 // ---------------------------------------------------------------------------
 // Language (DE / EN)
@@ -562,12 +631,47 @@ const TEXTS = {
     tudelft: "TU Delft Methode 1",
     tudelft_titel: "Methode 1, Hazen, einseitig 95 %, Lognormal per Regression – reproduziert die open-GLASSlab-Rechnung",
     pruefserien: "Prüfserien", plus_serie: "+ Serie",
-    teilen: "Markierte Serie aufteilen nach …",
-    teilen_titel: "Markierte Serie in eine Serie je Wert dieser Spalte aufteilen",
+    teilen: "Serien bilden nach Spalten …",
+    teilen_hinweis: "Spalten in der gewünschten Namensreihenfolge anklicken (z. B. Gruppe, Scheibe, Position, Luft/Zinn). „Serien bilden“ ersetzt die markierte Serie durch eine Serie je vorhandener Wertekombination mit mindestens 3 Messwerten. Die Namen entstehen aus den Werten, verbunden mit „_“, z. B. G1_1_Pos.1_A_W.",
+    teilen_start: "Serien bilden", teilen_keine_spalte: "Bitte mindestens eine Spalte anklicken.",
+    teilen_ergebnis: "{n} Serien gebildet.",
+    teilen_uebersprungen: " {k} Kombination(en) mit weniger als 3 Messwerten übersprungen ({m} Messwerte).",
+    teilen_viele: "Das ergibt {n} Serien. Fortfahren?",
+    massen: "Serien nach Wert zeigen / ausblenden / entfernen …",
+    massen_hinweis: "Wirkt auf alle Serien, deren Filter den gewählten Wert enthält.",
+    mw_spalte: "– Spalte wählen –", mw_wert: "– Wert wählen –", mw_wert_n: "{wert}  ({k} Serien)",
+    mw_nur: "Nur diese zeigen", mw_aus: "Ausblenden", mw_weg: "Entfernen", mw_alle: "Alle zeigen",
+    mw_keine: "Keine Serie hat diesen Wert im Filter.", mw_weg_frage: "{k} Serie(n) entfernen?",
+    doppelt_name: "Gleicher Name wie eine andere Serie",
+    doppelt_daten: "Gleiche Filter (gleiche Messwerte) wie „{name}“",
+    warnung_doppelt_name: "⚠ Name mehrfach vergeben: {namen}",
+    warnung_doppelt_daten: "⚠ Identische Serien: {paare}",
+    daten_zeigen: "Daten", daten_zeigen_titel: "Messwerte dieser Serie als Tabelle zeigen (zum Kopieren nach Excel)",
+    autoname: "Auto", autoname_titel: "Name automatisch aus den Filtern bilden (Spalten in der Reihenfolge von „Serien bilden nach Spalten“, sonst alle gefilterten Spalten)",
+    tab_kopieren: "Für Excel kopieren", tab_kopieren_titel: "Tabelle in die Zwischenablage kopieren – in Excel mit Strg+V einfügen",
+    tab_csv: "CSV", tab_csv_alle: "CSV aller sichtbaren Serien",
+    tab_csv_alle_titel: "Eine CSV-Datei mit den Messwerten aller sichtbaren Serien und einer Spalte „Serie“",
+    tab_info: "{n} Messwerte · Originalwerte aus der Excel-Datei (ohne Prüfflächen-Umrechnung) · Klick auf eine Spaltenüberschrift sortiert.",
+    tab_kopiert: "{n} Zeilen kopiert – in Excel mit Strg+V einfügen.", tab_kopieren_fehler: "Kopieren nicht möglich – bitte CSV verwenden.",
+    tab_serie: "Serie", tab_datei: "Messwerte",
+    hover_standard: "Standard (ISO-Nummer, Luft/Zinn, Position)",
+    vk_titel: "Variationskoeffizient der Messwerte: σx / X",
+    pg_titel: "Punkte gegen Ausgleichsgerade",
+    pg_hinweis: "Wie gut beschreibt die Ausgleichsgerade einer Serie die Messpunkte einer anderen? Gezeichnet werden die Punkte der zweiten Serie (mit ihren eigenen Plotpositionen) und die Gerade der ersten. Die senkrechten Striche sind die Abstände, die die Methode 1 (kleinste Quadrate) bewertet. Ergänzend: KS-Test der Punkte gegen die angepasste Verteilung der ersten Serie.",
+    pg_linie: "Gerade von", pg_punkte: "Punkte von", pg_start: "Anzeigen",
+    pg_eigene: "eigene Gerade", pg_abstand: "Abstände", pg_punkte_a: "Punkte von „{a}“",
+    pg_rms: "Mittlerer senkrechter Abstand (RMS) zur Geraden von „{a}“: {ra}  ·  zur eigenen Geraden: {rb}",
+    pg_mittel: "Mittlere senkrechte Abweichung {m}: {txt}",
+    pg_hoeher: "die Punkte liegen im Mittel über der Geraden – bei gleicher Spannung höhere Bruchwahrscheinlichkeit, also schwächer",
+    pg_tiefer: "die Punkte liegen im Mittel unter der Geraden – also fester",
+    pg_verh: "Festigkeit bei gleicher Bruchwahrscheinlichkeit: im Mittel {v} der Geraden ({d})",
+    pg_ks: "KS-Test der Punkte gegen die Verteilung von „{a}“: D = {D}, p {p} – ",
+    pg_ks_ok: "verträglich (nicht abgelehnt, α = 5 %)", pg_ks_nein: "weicht ab (abgelehnt, α = 5 %)",
+    pg_plot_titel: "Punkte: {b}  ·  Gerade: {a}",
     hinweis_filter: "Klick auf eine Serie öffnet ihre Filter unten. Die Filter wirken wie im Konfigurator: UND zwischen Spalten, ODER innerhalb einer Spalte.",
     serie_bearbeiten: "Serie bearbeiten", name_platzhalter: "Name der Serie",
     anzeige: "Anzeige", messpunkte: "Messpunkte", gerade: "Ausgleichsgerade",
-    band: "Konfidenzband", fraktile: "5 %-Fraktile", gleichung: "Geradengleichung",
+    band: "Konfidenzband", fraktile: "5 %-Fraktil (95 %-Konfidenz)", gleichung: "Geradengleichung",
     hover_angaben: "Angaben beim Überfahren eines Punkts",
     ansichten: "Gespeicherte Ansichten", ansicht_laden: "– Ansicht laden –",
     ansicht_speichern: "Aktuelle Ansicht speichern …", loeschen: "Löschen",
@@ -597,15 +701,15 @@ const TEXTS = {
     plotly_fehlt: "Plotly konnte nicht geladen werden – besteht eine Internetverbindung?",
     keine_auswertbar: "Keine auswertbare Serie sichtbar (je Serie mindestens 3 Messwerte).",
     pruefserie: "Prüfserie", delta: "Δ zu Serie 1", zu_wenige: "zu wenige Messwerte",
-    sigma_vert: "σ Vert.",
+    sigma_vert: "σ Vert.", vk: "VK",
     fuss: "{s95} = maßgebender Wert: untere Grenze des Konfidenzintervalls des 5 %-Fraktils. " +
       "A² (Anderson-Darling) ist ein Vergleichsmaß zwischen den Verteilungen – kleiner = bessere Anpassung. " +
-      "σx = Standardabweichung der Messwerte, σ Vert. = Standardabweichung der angepassten Verteilung. " +
+      "σx = Standardabweichung der Messwerte, VK = Variationskoeffizient σx / X, σ Vert. = Standardabweichung der angepassten Verteilung. " +
       "Gerechnet nach open-GLASSlab (TU Delft) und EN 12603; ",
     fuss_regression: "Lognormal μ, s hier per Regression im Netz wie im open-GLASSlab der TU Delft .",
     fuss_moment: "die Lognormalverteilung über die Momentenschätzung.",
     csv_kopf: ["Verteilung", "Prüfserie", "n", "m bzw. μ", "β bzw. s", "R² %", "σf,min", "σf,max", "X",
-      "σk,0,05", "σk,0,05;0,95", "σk,0,05 obere Grenze", "σx (Messwerte)", "σ (Verteilung)", "A²", "Zielfläche [cm²]", "Faktor", "σk,0,05;0,95 original", "Einstellungen"],
+      "σk,0,05", "σk,0,05;0,95", "σk,0,05 obere Grenze", "σx (Messwerte)", "VK (Messwerte) %", "σ (Verteilung)", "A²", "Zielfläche [cm²]", "Faktor", "σk,0,05;0,95 original", "Einstellungen"],
     csv_datei: "Glass_Strength_Lab_Kennwerte.csv",
   },
   en: {
@@ -738,12 +842,47 @@ const TEXTS = {
     tudelft: "TU Delft Method 1",
     tudelft_titel: "Method 1, Hazen, one-sided 95 %, log-normal by regression – reproduces the open-GLASSlab calculation",
     pruefserien: "Test series", plus_serie: "+ Series",
-    teilen: "Split selected series by …",
-    teilen_titel: "Split the selected series into one series per value of this column",
+    teilen: "Create series by columns …",
+    teilen_hinweis: "Click the columns in the order the names should use (e.g. group, pane, position, air/tin). “Create series” replaces the selected series with one series per existing combination of values with at least 3 measurements. Names are built from the values, joined with “_”, e.g. G1_1_Pos.1_A_W.",
+    teilen_start: "Create series", teilen_keine_spalte: "Please click at least one column.",
+    teilen_ergebnis: "{n} series created.",
+    teilen_uebersprungen: " {k} combination(s) with fewer than 3 measurements skipped ({m} measurements).",
+    teilen_viele: "This gives {n} series. Continue?",
+    massen: "Show / hide / remove series by value …",
+    massen_hinweis: "Acts on all series whose filter contains the chosen value.",
+    mw_spalte: "– choose column –", mw_wert: "– choose value –", mw_wert_n: "{wert}  ({k} series)",
+    mw_nur: "Show only these", mw_aus: "Hide", mw_weg: "Remove", mw_alle: "Show all",
+    mw_keine: "No series has this value in its filter.", mw_weg_frage: "Remove {k} series?",
+    doppelt_name: "Same name as another series",
+    doppelt_daten: "Same filters (same measurements) as “{name}”",
+    warnung_doppelt_name: "⚠ Name used more than once: {namen}",
+    warnung_doppelt_daten: "⚠ Identical series: {paare}",
+    daten_zeigen: "Data", daten_zeigen_titel: "Show the measurements of this series as a table (to copy to Excel)",
+    autoname: "Auto", autoname_titel: "Name the series automatically from its filters (columns in the order of “Create series by columns”, otherwise all filtered columns)",
+    tab_kopieren: "Copy for Excel", tab_kopieren_titel: "Copy the table to the clipboard – paste into Excel with Ctrl+V",
+    tab_csv: "CSV", tab_csv_alle: "CSV of all visible series",
+    tab_csv_alle_titel: "One CSV file with the measurements of all visible series and a column “Series”",
+    tab_info: "{n} measurements · original values from the Excel file (no test-area conversion) · click a column header to sort.",
+    tab_kopiert: "{n} rows copied – paste into Excel with Ctrl+V.", tab_kopieren_fehler: "Copying is not possible – please use CSV.",
+    tab_serie: "Series", tab_datei: "measurements",
+    hover_standard: "Default (ISO number, Air/Tin, Position)",
+    vk_titel: "Coefficient of variation of the measured values: σx / X",
+    pg_titel: "Points against a fitted line",
+    pg_hinweis: "How well does the fitted line of one series describe the data points of another? The plot shows the points of the second series (at their own plotting positions) and the line of the first. The vertical strokes are the distances that method 1 (least squares) evaluates. In addition: KS test of the points against the distribution fitted to the first series.",
+    pg_linie: "Line of", pg_punkte: "Points of", pg_start: "Show",
+    pg_eigene: "own line", pg_abstand: "distances", pg_punkte_a: "points of “{a}”",
+    pg_rms: "Mean vertical distance (RMS) to the line of “{a}”: {ra}  ·  to its own line: {rb}",
+    pg_mittel: "Mean vertical deviation {m}: {txt}",
+    pg_hoeher: "on average the points lie above the line – higher probability of failure at the same stress, i.e. weaker",
+    pg_tiefer: "on average the points lie below the line – i.e. stronger",
+    pg_verh: "Strength at equal probability of failure: on average {v} of the line ({d})",
+    pg_ks: "KS test of the points against the distribution of “{a}”: D = {D}, p {p} – ",
+    pg_ks_ok: "consistent (not rejected, α = 5 %)", pg_ks_nein: "differs (rejected, α = 5 %)",
+    pg_plot_titel: "Points: {b}  ·  Line: {a}",
     hinweis_filter: "Click a series to edit its filters below. Filters combine like in the Konfigurator: AND across columns, OR within a column.",
     serie_bearbeiten: "Edit series", name_platzhalter: "Series name",
     anzeige: "Display", messpunkte: "Data points", gerade: "Fitted line",
-    band: "Confidence band", fraktile: "5 % fractiles", gleichung: "Line equation",
+    band: "Confidence band", fraktile: "5 % fractile (95 % confidence)", gleichung: "Line equation",
     hover_angaben: "Details shown on hover",
     ansichten: "Saved views", ansicht_laden: "– Load view –",
     ansicht_speichern: "Save current view …", loeschen: "Delete",
@@ -773,15 +912,15 @@ const TEXTS = {
     plotly_fehlt: "Plotly could not be loaded – is there an internet connection?",
     keine_auswertbar: "No evaluable series visible (at least 3 measurements per series).",
     pruefserie: "Test series", delta: "Δ to series 1", zu_wenige: "too few measurements",
-    sigma_vert: "σ fit",
+    sigma_vert: "σ fit", vk: "CV",
     fuss: "{s95} = governing value: lower bound of the confidence interval of the 5 % fractile. " +
       "A² (Anderson-Darling) compares how well the two distributions fit – smaller = better fit. " +
-      "σx = standard deviation of the measured values, σ fit = standard deviation of the fitted distribution. " +
+      "σx = standard deviation of the measured values, CV = coefficient of variation σx / X, σ fit = standard deviation of the fitted distribution. " +
       "Calculated after open-GLASSlab (TU Delft) and EN 12603; ",
     fuss_regression: "log-normal μ, s here by regression on the probability plot as in TU Delft's open-GLASSlab.",
     fuss_moment: "the log-normal distribution by the method of moments.",
     csv_kopf: ["Distribution", "Test series", "n", "m or μ", "β or s", "R² %", "σf,min", "σf,max", "X",
-      "σk,0.05", "σk,0.05;0.95", "σk,0.05 upper bound", "σx (measured values)", "σ (fitted distribution)", "A²", "Target area [cm²]", "Factor", "σk,0.05;0.95 original", "Settings"],
+      "σk,0.05", "σk,0.05;0.95", "σk,0.05 upper bound", "σx (measured values)", "CV (measured values) %", "σ (fitted distribution)", "A²", "Target area [cm²]", "Factor", "σk,0.05;0.95 original", "Settings"],
     csv_datei: "Glass_Strength_Lab_results.csv",
   },
 };
@@ -882,7 +1021,7 @@ function setLanguage(lang) {
   fillViewList(DATA.ansichten);
   if (RESULT) { $("status").textContent = settingsText(); showMessage(hintsText(RESULT.hinweise)); }
   drawSeriesList(); drawEditor(); drawDiagrams(); drawTables(); combineShow();
-  validShow(); gcShow(); saveState();
+  validShow(); gcShow(); pgShow(); saveState();
 }
 
 const el = (tag, attrs = {}, ...children) => {
@@ -907,9 +1046,10 @@ async function start() {
   drawFileList();
 
   restoreState();
+  drawSplitColumns();
   fillOptions();
   if (!Z.serien.length) Z.serien.push(newSeries(t("alle_messwerte"), {}));
-  if (!Z.hover.length) Z.hover = DATA.spalten.map(s => s.name).filter(n => HOVER_DEFAULTS.includes(n));
+  if (!Z.hover.length) Z.hover = hoverDefaults();
   Z.serien.forEach(cleanSeries);
 
   bindControls();
@@ -994,7 +1134,7 @@ function bindControls() {
   for (const [id, field] of [["sw-art", "art"], ["sw-modus", "modus"]]) {
     $(id).addEventListener("click", ev => {
       const w = ev.target.dataset.w; if (!w) return;
-      Z[field] = w; showSwitches(); drawDiagrams(); drawTables(); saveState();
+      Z[field] = w; showSwitches(); drawDiagrams(); drawTables(); pgShow(); saveState();
     });
   }
   for (const [id, field] of SELECT_FIELDS) {
@@ -1019,17 +1159,43 @@ function bindControls() {
     });
   });
   $("btn-neu").addEventListener("click", () => {
-    Z.serien.push(newSeries(t("serie_n", {n: Z.serien.length + 1}), {}));
+    const fresh = newSeries(t("serie_n", {n: Z.serien.length + 1}), {});
+    fresh.autoname = true;
+    Z.serien.push(fresh);
     Z.aktiv = Z.serien.length - 1; drawAll();
   });
   $("ed-name").addEventListener("input", () => {
     const s = Z.serien[Z.aktiv]; if (!s) return;
-    s.name = $("ed-name").value; drawSeriesList(); recalculate(600);
+    s.name = $("ed-name").value; s.autoname = false;
+    $("btn-autoname").classList.remove("an"); drawSeriesList(); recalculate(600);
   });
-  $("sel-teilen").addEventListener("change", () => {
-    const column = $("sel-teilen").value; $("sel-teilen").value = "";
-    if (column) splitSeries(column);
+  $("btn-autoname").addEventListener("click", () => {
+    const s = Z.serien[Z.aktiv]; if (!s) return;
+    s.autoname = true; drawSeriesList(); drawEditor(); recalculate(0);
   });
+  $("btn-daten").addEventListener("click", () => showTable(Z.aktiv));
+  $("btn-teilen").addEventListener("click", createSeriesByColumns);
+  $("btn-teilen-leeren").addEventListener("click", () => {
+    Z.namensspalten = []; drawSplitColumns(); drawSeriesList(); recalculate(0);
+  });
+  $("mw-spalte").addEventListener("change", fillValueSelect);
+  $("btn-mw-nur").addEventListener("click", () => bulkAction("nur"));
+  $("btn-mw-aus").addEventListener("click", () => bulkAction("aus"));
+  $("btn-mw-weg").addEventListener("click", () => bulkAction("weg"));
+  $("btn-mw-alle").addEventListener("click", () => {
+    Z.serien.forEach(s => { s.sichtbar = true; }); drawSeriesList(); drawDiagrams(); drawTables(); saveState();
+  });
+  $("hover-standard").addEventListener("click", () => { Z.hover = hoverDefaults(); drawHoverList(); recalculate(0); });
+  $("btn-pg").addEventListener("click", () => pgCheck());
+  for (const id of ["pg-a", "pg-b"]) $(id).addEventListener("change", () => {
+    Z.pg = Object.assign(Z.pg || {}, {a: $("pg-a").value, b: $("pg-b").value});
+    saveState();
+    if (PG) pgCheck();
+  });
+  $("btn-tab-zu").addEventListener("click", () => $("tabelle-dialog").close());
+  $("btn-tab-kopieren").addEventListener("click", tableCopy);
+  $("btn-tab-csv").addEventListener("click", () => tableCsv(false));
+  $("btn-tab-csv-alle").addEventListener("click", () => tableCsv(true));
   $("btn-csv").addEventListener("click", csvExport);
   $("btn-kombi").addEventListener("click", () => combineCheck());
   for (const id of ["kombi-a", "kombi-b", "kombi-r"]) $(id).addEventListener("change", () => {
@@ -1074,14 +1240,54 @@ function drawAll() {
   showSwitches(); drawSeriesList(); drawEditor(); recalculate(0);
 }
 
+// Automatic name: the filter values of the naming columns (or of all
+// filtered columns), joined with "_"; several values of one column with "+".
+// Empty if the series has no filter on these columns.
+function autoName(s) {
+  const f = s.filter || {};
+  const cols = Z.namensspalten.some(c => f[c]) ? Z.namensspalten
+    : DATA.spalten.map(sp => sp.name).filter(c => f[c]);
+  return cols.filter(c => f[c] && f[c].length).map(c => {
+    const sp = DATA.spalten.find(x => x.name === c);
+    const shown = k => ((sp && sp.werte.find(w => w.schluessel === k)) || {anzeige: k}).anzeige;
+    return f[c].map(shown).join("+");
+  }).join("_");
+}
+function refreshAutoNames() {
+  for (const s of Z.serien) {
+    if (!s.autoname || s.vereinigung) continue;
+    const name = autoName(s);
+    if (name) s.name = name;
+  }
+}
+// Same filters = same measurements (key independent of the order of columns and values)
+const filterKey = s => JSON.stringify(partFilters(s).map(f => Object.keys(f).sort()
+  .map(k => [k, [...f[k]].sort()])).sort());
+
 function drawSeriesList() {
+  refreshAutoNames();
   const list = $("serienliste"); list.innerHTML = "";
+  const nameCount = {}, firstWithKey = {};
+  for (const s of Z.serien) nameCount[s.name.trim()] = (nameCount[s.name.trim()] || 0) + 1;
+  const dupNames = new Set(), dupPairs = [];
+  Z.serien.forEach(s => {
+    if (nameCount[s.name.trim()] > 1) dupNames.add(s.name.trim());
+    const k = filterKey(s);
+    if (k in firstWithKey) dupPairs.push(`${firstWithKey[k].name} = ${s.name}`); else firstWithKey[k] = s;
+  });
+  $("serien-warnung").textContent = [
+    dupNames.size ? t("warnung_doppelt_name", {namen: [...dupNames].map(n => `„${n}“`).join(", ")}) : "",
+    dupPairs.length ? t("warnung_doppelt_daten", {paare: dupPairs.join(", ")}) : ""].filter(Boolean).join("\n");
   Z.serien.forEach((s, i) => {
     const n = seriesRows(s).length;
+    const twin = firstWithKey[filterKey(s)];
+    const warn = [nameCount[s.name.trim()] > 1 ? t("doppelt_name") : "",
+      twin !== s ? t("doppelt_daten", {name: twin.name}) : ""].filter(Boolean).join("\n");
     list.append(el("div", {class: `serie${i === Z.aktiv ? " aktiv" : ""}${s.sichtbar ? "" : " versteckt"}`,
         onclick: () => { Z.aktiv = i; drawSeriesList(); drawEditor(); saveState(); }},
       el("span", {class: "punkt", style: `background:${displayColor(s.farbe)}`}),
       el("span", {class: "name", title: s.name}, s.name || t("ohne_namen")),
+      warn ? el("span", {class: "doppelt", title: warn}, "⚠") : null,
       el("span", {class: `n${n < 3 ? " leer" : ""}`}, `n = ${n}`),
       el("button", {class: "ikon", title: s.sichtbar ? t("ausblenden") : t("einblenden"),
         onclick: ev => { ev.stopPropagation(); s.sichtbar = !s.sichtbar;
@@ -1089,7 +1295,9 @@ function drawSeriesList() {
         s.sichtbar ? "◉" : "○"),
       el("button", {class: "ikon", title: t("duplizieren"),
         onclick: ev => { ev.stopPropagation();
-          Z.serien.splice(i + 1, 0, newSeries(s.name + t("kopie"), JSON.parse(JSON.stringify(s.filter))));
+          const copy = newSeries(s.name + t("kopie"), JSON.parse(JSON.stringify(s.filter)));
+          copy.autoname = !!s.autoname;
+          Z.serien.splice(i + 1, 0, copy);
           Z.aktiv = i + 1; drawAll(); }}, "⧉"),
       el("button", {class: "ikon weg", title: t("entfernen"),
         onclick: ev => { ev.stopPropagation(); Z.serien.splice(i, 1);
@@ -1097,15 +1305,18 @@ function drawSeriesList() {
     ));
   });
   if (!Z.serien.length) list.append(el("div", {class: "hinweis"}, t("keine_serie")));
-  combineFillSelects(); validFillSelects(); gcFillSelects();
+  combineFillSelects(); validFillSelects(); gcFillSelects(); pgFillSelects(); fillValueSelect();
 }
 
 function drawEditor() {
   const s = Z.serien[Z.aktiv];
   $("editor").style.display = s ? "" : "none";
   if (!s) return;
+  refreshAutoNames();
   $("ed-name").value = s.name;
   $("ed-n").textContent = `n = ${seriesRows(s).length}`;
+  $("btn-autoname").classList.toggle("an", !!s.autoname);
+  $("btn-autoname").disabled = !!s.vereinigung;
 
   const colors = $("ed-farben"); colors.innerHTML = "";
   for (const f of DATA.palette) colors.append(el("span", {
@@ -1162,33 +1373,96 @@ function drawHoverList() {
     el("span", {class: "txt"}, sp.name)));
 }
 
-// Split the selected series into one series per value of a column
-function splitSeries(column) {
-  const s = Z.serien[Z.aktiv]; if (!s) return;
-  if (s.vereinigung) return showMessage(t("kombi_nicht_teilen"));
-  const sp = DATA.spalten.find(x => x.name === column);
-  const idx = DATA.spalten.indexOf(sp);
-  const base = rowsMatching(s.filter, column);
-  const allowed = s.filter[column] ? new Set(s.filter[column]) : null;
-  const counts = {};
-  for (const z of base) counts[z[idx]] = (counts[z[idx]] || 0) + 1;
-  const values = sp.werte.filter(w => (counts[w.schluessel] || 0) >= 3 && (!allowed || allowed.has(w.schluessel)));
-  if (values.length < 2) {
-    showMessage(t("teilen_zu_wenig", {spalte: column}));
-    return;
+// Columns for "create series" / automatic names: clicking adds a column at the
+// end of the order, clicking again removes it
+function drawSplitColumns() {
+  const box = $("teilen-spalten"); box.innerHTML = "";
+  Z.namensspalten = Z.namensspalten.filter(c => DATA.spalten.some(sp => sp.name === c));
+  for (const sp of DATA.spalten) {
+    const pos = Z.namensspalten.indexOf(sp.name);
+    box.append(el("label", {class: "wert"},
+      el("input", {type: "checkbox", checked: pos >= 0, onchange: ev => {
+        Z.namensspalten = ev.target.checked ? [...Z.namensspalten, sp.name]
+          : Z.namensspalten.filter(c => c !== sp.name);
+        drawSplitColumns(); drawSeriesList(); drawEditor(); recalculate(); }}),
+      el("span", {class: "txt"}, sp.name),
+      pos >= 0 ? el("span", {class: "reihe"}, String(pos + 1)) : el("span", {class: "anz"}, String(sp.werte.length))));
   }
-  const max = DATA.palette.length;
-  if (values.length > max) showMessage(t("teilen_zu_viele", {spalte: column, n: values.length, max}));
-  values.sort((a, b) => (counts[b.schluessel] - counts[a.schluessel])).splice(max);
-  values.sort((a, b) => sp.werte.indexOf(a) - sp.werte.indexOf(b));
-  const defaultNames = [TEXTS.de.alle_messwerte, TEXTS.en.alle_messwerte];
-  const prefix = s.name && !defaultNames.includes(s.name) ? s.name + " · " : "";
-  const fresh = values.map((w, j) => ({
-    name: prefix + w.anzeige, farbe: DATA.palette[j % DATA.palette.length], sichtbar: true,
-    filter: Object.assign(JSON.parse(JSON.stringify(s.filter)), {[column]: [w.schluessel]}),
-  }));
-  Z.serien.splice(Z.aktiv, 1, ...fresh);
+}
+
+// Replace the selected series by one series per combination of values of the
+// naming columns that occurs in it (at least 3 measurements each)
+function createSeriesByColumns() {
+  const s = Z.serien[Z.aktiv];
+  const cols = Z.namensspalten;
+  if (!cols.length) return showInfo(t("teilen_keine_spalte"), true);
+  if (s && s.vereinigung) return showInfo(t("kombi_nicht_teilen"), true);
+  const base = s ? s.filter : {};
+  const idx = cols.map(c => DATA.spalten.findIndex(sp => sp.name === c));
+  // rows of the series, with the naming columns free (but restricted to
+  // values the series already allows)
+  const rows = rowsMatching(base).filter(z => idx.every(j => z[j] != null));
+  const groups = new Map();
+  for (const z of rows) {
+    const key = JSON.stringify(idx.map(j => z[j]));
+    groups.set(key, (groups.get(key) || 0) + 1);
+  }
+  const order = idx.map(j => new Map(DATA.spalten[j].werte.map((w, r) => [w.schluessel, r])));
+  const combos = [...groups.entries()].map(([k, n]) => ({werte: JSON.parse(k), n}))
+    .sort((a, b) => { for (let c = 0; c < idx.length; c++) {
+      const d = order[c].get(a.werte[c]) - order[c].get(b.werte[c]); if (d) return d; } return 0; });
+  const kept = combos.filter(c => c.n >= 3), skipped = combos.filter(c => c.n < 3);
+  if (!kept.length) return showInfo(t("teilen_ergebnis", {n: 0}) +
+    t("teilen_uebersprungen", {k: skipped.length, m: skipped.reduce((a, c) => a + c.n, 0)}), true);
+  if (kept.length > 60 && !confirm(t("teilen_viele", {n: kept.length}))) return;
+  const fresh = kept.map((c, j) => {
+    const filter = JSON.parse(JSON.stringify(base));
+    cols.forEach((col, ci) => { filter[col] = [c.werte[ci]]; });
+    return {name: "", farbe: DATA.palette[j % DATA.palette.length], sichtbar: true, filter, autoname: true};
+  });
+  if (s) Z.serien.splice(Z.aktiv, 1, ...fresh); else Z.serien.push(...fresh);
+  Z.aktiv = Math.min(Z.aktiv, Z.serien.length - 1);
+  $("teilen-box").open = false;
   drawAll();
+  showInfo(t("teilen_ergebnis", {n: kept.length}) + (skipped.length
+    ? t("teilen_uebersprungen", {k: skipped.length, m: skipped.reduce((a, c) => a + c.n, 0)}) : ""));
+}
+
+// Bulk actions on the series list: series whose filter contains a value
+function seriesWithValue(column, key) {
+  return Z.serien.filter(s => partFilters(s).some(f => (f[column] || []).includes(key)));
+}
+function fillValueSelect() {
+  const cs = $("mw-spalte"), ws = $("mw-wert");
+  const column = cs.value, before = ws.value;
+  cs.innerHTML = ""; cs.append(el("option", {value: ""}, t("mw_spalte")));
+  const used = DATA.spalten.filter(sp => Z.serien.some(s => partFilters(s).some(f => f[sp.name])));
+  for (const sp of used) cs.append(el("option", {value: sp.name}, sp.name));
+  cs.value = used.some(sp => sp.name === column) ? column : "";
+  ws.innerHTML = ""; ws.append(el("option", {value: ""}, t("mw_wert")));
+  const sp = DATA.spalten.find(x => x.name === cs.value);
+  if (sp) for (const w of sp.werte) {
+    const k = seriesWithValue(sp.name, w.schluessel).length;
+    if (k) ws.append(el("option", {value: w.schluessel}, t("mw_wert_n", {wert: w.anzeige, k})));
+  }
+  ws.value = [...ws.options].some(o => o.value === before) ? before : "";
+}
+function bulkAction(kind) {
+  const column = $("mw-spalte").value, key = $("mw-wert").value;
+  if (!column || !key) return;
+  const hit = new Set(seriesWithValue(column, key));
+  if (!hit.size) return showInfo(t("mw_keine"), true);
+  if (kind === "weg") {
+    if (!confirm(t("mw_weg_frage", {k: hit.size}))) return;
+    Z.serien = Z.serien.filter(s => !hit.has(s));
+    Z.aktiv = Math.max(0, Math.min(Z.aktiv, Z.serien.length - 1));
+    return drawAll();
+  }
+  for (const s of Z.serien) {
+    if (kind === "nur") s.sichtbar = hit.has(s);
+    else if (hit.has(s)) s.sichtbar = false;
+  }
+  drawSeriesList(); drawDiagrams(); drawTables(); saveState();
 }
 
 // ---------------------------------------------------------------------------
@@ -1197,10 +1471,8 @@ function splitSeries(column) {
 let uploadMode = "ersetzen";
 
 function fillColumnSelect() {
-  const sel = $("sel-teilen");
-  sel.innerHTML = "";
-  sel.append(el("option", {value: ""}, t("teilen")));
-  for (const sp of DATA.spalten) sel.append(el("option", {value: sp.name}, sp.name));
+  drawSplitColumns();
+  fillValueSelect();
 }
 
 function drawFileList() {
@@ -1286,7 +1558,7 @@ function applyData(fresh, message) {
     if (JSON.stringify(partFilters(s)) !== before) affected.push(s.name);
   }
   Z.hover = Z.hover.filter(h => DATA.spalten.some(sp => sp.name === h));
-  if (!Z.hover.length) Z.hover = DATA.spalten.map(s => s.name).filter(n => HOVER_DEFAULTS.includes(n));
+  if (!Z.hover.length) Z.hover = hoverDefaults();
   $("quelle").textContent = sourceText();
   fillColumnSelect(); drawFileList(); drawHoverList(); fillAreaSelect();
   drawAll();
@@ -1895,6 +2167,7 @@ function recalculate(delay = 250) {
       drawDiagrams(); drawTables();
       if (COMBINE || (Z.kombi && Z.kombi.aktiv)) combineCheck();
       if (Z.gv && Z.gv.aktiv) gcCompare();
+      if (Z.pg && Z.pg.aktiv) pgCheck();
       // validation takes a few seconds: only repeat it if it is already shown
       if (Z.valid && Z.valid.aktiv) validate();
     } catch (err) {
@@ -2081,7 +2354,7 @@ function columns(dist) {
   return [["n", "n", "", 0], ...form, ["R2", "R²", "%", 1, 100],
     ["min", "σf,min", "[N/mm²]", 1], ["max", "σf,max", "[N/mm²]", 1], ["mean", "X", "[N/mm²]", 1],
     ["frak5", symFrac5(), "[N/mm²]", 1], ["frak5_95", symFrac95(), "[N/mm²]", 1],
-    ["std", "σx", "[N/mm²]", 1], ["std_fit", t("sigma_vert"), "[N/mm²]", 1], ["A2", "A²", "[-]", 3]];
+    ["std", "σx", "[N/mm²]", 1], ["cv", t("vk"), "%", 1, 100], ["std_fit", t("sigma_vert"), "[N/mm²]", 1], ["A2", "A²", "[-]", 3]];
 }
 
 // factor (with several ring sizes as a range, details in the tooltip) and
@@ -2114,7 +2387,7 @@ function drawTables() {
     const body = rows.map(e => {
       if (e.fehler) return el("tr", {class: "fehler"}, el("td", {}, e.name),
         el("td", {}, String(e.n)), el("td", {colspan: sp.length + (conv ? 2 : 0)}, t("zu_wenige")));
-      const k = e[dist].kennwerte;
+      const k = Object.assign({cv: e[dist].kennwerte.std / e[dist].kennwerte.mean}, e[dist].kennwerte);
       const delta = reference && reference !== e ? k.frak5_95 - reference[dist].kennwerte.frak5_95 : null;
       return el("tr", {},
         el("td", {}, el("span", {class: "punkt", style: `background:${e.farbe};display:inline-block;margin-right:7px;vertical-align:-1px`}), e.name),
@@ -2142,7 +2415,7 @@ function csvExport() {
     const k = e[dist].kennwerte, w = dist === "weibull";
     rows.push([distName(dist), e.name, k.n, field(w ? k.lambda : k.mu, 4), field(w ? k.beta : k.sd, 4),
       field(100 * k.R2, 2), field(k.min, 2), field(k.max, 2), field(k.mean, 2), field(k.frak5, 4),
-      field(k.frak5_95, 4), field(k.frak5_ob, 4), field(k.std, 4), field(k.std_fit, 4), field(k.A2, 4),
+      field(k.frak5_95, 4), field(k.frak5_ob, 4), field(k.std, 4), field(100 * k.std / k.mean, 2), field(k.std_fit, 4), field(k.A2, 4),
       e.umrechnung ? field(e.umrechnung.ziel_mm2 / 100, 2) : "",
       e.umrechnung ? e.umrechnung.gruppen.map(g => `${g.ring}: ${field(g.faktor, 4)}`).join(" | ") : "",
       e.umrechnung ? field(e[dist].original.kennwerte.frak5_95, 4) : "", settingsLine]);
@@ -2157,6 +2430,165 @@ function csvExport() {
 // ---------------------------------------------------------------------------
 // Saved views
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Data table: the measurements of a series with all Excel columns
+// ---------------------------------------------------------------------------
+let TABLE = null;             // {spalten, name, zeilen, sort: [column, ascending] or null}
+
+async function fetchRows(seriesList) {
+  const r = await fetch("/api/zeilen", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({serien: seriesList.map(seriesForServer)})});
+  const d = await r.json();
+  if (d.fehler) throw new Error(d.fehler);
+  return d;
+}
+async function showTable(i) {
+  const s = Z.serien[i]; if (!s) return;
+  try {
+    const d = await fetchRows([s]);
+    TABLE = {spalten: d.spalten, name: d.serien[0].name, zeilen: d.serien[0].zeilen, sort: null};
+  } catch (f) { return showInfo(t("fehlgeschlagen", {text: f.message}), true); }
+  drawTable();
+  $("tabelle-dialog").showModal();
+}
+// numbers with the decimal separator of the language; empty cells empty
+const cellOut = v => typeof v === "number" ? (LANG === "de" ? String(v).replace(".", ",") : String(v))
+  : v === "–" ? "" : String(v);
+const sortValue = v => typeof v === "number" ? v
+  : (/^-?\d+([.,]\d+)?$/.test(String(v).trim()) ? parseFloat(String(v).replace(",", ".")) : String(v));
+function tableRows() {
+  const rows = TABLE.zeilen.slice();
+  if (!TABLE.sort) return rows;
+  const [c, asc] = TABLE.sort;
+  return rows.sort((a, b) => {
+    const x = sortValue(a[c]), y = sortValue(b[c]);
+    const d = typeof x === "number" && typeof y === "number" ? x - y
+      : String(x).localeCompare(String(y), undefined, {numeric: true});
+    return asc ? d : -d;
+  });
+}
+function drawTable() {
+  const T = TABLE;
+  $("tab-titel").textContent = `${T.name}  ·  n = ${T.zeilen.length}`;
+  $("tab-info").textContent = t("tab_info", {n: T.zeilen.length});
+  const head = T.spalten.map((c, i) => `<th data-i="${i}">${html(c)}${T.sort && T.sort[0] === i ? (T.sort[1] ? " ▲" : " ▼") : ""}</th>`).join("");
+  const body = tableRows().map(z => "<tr>" + z.map(v => typeof v === "number"
+    ? `<td class="zahl">${html(cellOut(v))}</td>` : `<td>${html(v)}</td>`).join("") + "</tr>").join("");
+  $("tab-inhalt").innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  $("tab-inhalt").querySelectorAll("th").forEach(th => th.addEventListener("click", () => {
+    const i = +th.dataset.i;
+    TABLE.sort = TABLE.sort && TABLE.sort[0] === i ? [i, !TABLE.sort[1]] : [i, true];
+    drawTable();
+  }));
+}
+async function tableCopy() {
+  const text = [TABLE.spalten, ...tableRows()].map(z => z.map(v => cellOut(v).replace(/[\t\r\n]+/g, " ")).join("\t")).join("\r\n");
+  try {
+    await navigator.clipboard.writeText(text);
+    $("tab-info").textContent = t("tab_kopiert", {n: TABLE.zeilen.length});
+  } catch (e) { $("tab-info").textContent = t("tab_kopieren_fehler"); }
+}
+function downloadCsv(rows, fileName) {
+  const sep = LANG === "de" ? ";" : ",";
+  const text = "﻿" + rows.map(z => z.map(f => `"${cellOut(f).replace(/"/g, '""')}"`).join(sep)).join("\r\n");
+  const a = el("a", {href: URL.createObjectURL(new Blob([text], {type: "text/csv;charset=utf-8"})), download: fileName});
+  document.body.append(a); a.click(); a.remove();
+}
+const safeFileName = name => String(name).replace(/[\\/:*?"<>|]+/g, "_").trim() || "data";
+async function tableCsv(all) {
+  if (!all) return downloadCsv([TABLE.spalten, ...tableRows()], safeFileName(TABLE.name) + ".csv");
+  let d;
+  try { d = await fetchRows(Z.serien.filter(s => s.sichtbar)); }
+  catch (f) { $("tab-info").textContent = t("fehlgeschlagen", {text: f.message}); return; }
+  const rows = [[t("tab_serie"), ...d.spalten]];
+  for (const s of d.serien) for (const z of s.zeilen) rows.push([s.name, ...z]);
+  downloadCsv(rows, `Glass_Strength_Lab_${t("tab_datei")}.csv`);
+}
+
+// ---------------------------------------------------------------------------
+// Points of one series against the fitted line of another
+// ---------------------------------------------------------------------------
+let PG = null;                // last check {antwort, a, b} or {fehler}
+
+function pgFillSelects() {
+  const p = Z.pg || {};
+  fillSeriesOptions($("pg-a"), p.a ?? "0");
+  fillSeriesOptions($("pg-b"), p.b ?? String(Math.min(1, Z.serien.length - 1)));
+  $("btn-pg").disabled = Z.serien.length < 2;
+}
+async function pgCheck() {
+  const a = Z.serien[+$("pg-a").value], b = Z.serien[+$("pg-b").value];
+  Z.pg = {a: $("pg-a").value, b: $("pg-b").value, aktiv: true};
+  saveState();
+  if (!a || !b || a === b) { PG = {fehler: () => t("kombi_gleich")}; return pgShow(); }
+  try {
+    const r = await fetch("/api/punkte_gerade", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(Object.assign({serie_a: seriesForServer(a), serie_b: seriesForServer(b)}, settingsForServer()))});
+    const d = await r.json();
+    if (d.fehler) throw new Error(d.fehler);
+    PG = d.fehler_code ? {fehler: () => t("fehler_" + d.fehler_code, d.details)} : {antwort: d, a, b};
+  } catch (f) {
+    PG = {fehler: () => t("fehlgeschlagen", {text: f.message})};
+  }
+  pgShow();
+}
+function pgShow() {
+  const box = $("pg-ergebnis");
+  box.querySelectorAll(".pg-plot").forEach(p => window.Plotly && Plotly.purge(p));
+  box.innerHTML = "";
+  if (!PG) return;
+  if (PG.fehler) return box.append(el("div", {class: "info fehler"}, el("span", {}, PG.fehler())));
+  const d = PG.antwort, [na, nb] = d.namen, F = d.flaeche;
+  const ca = displayColor(PG.a.farbe), cb = displayColor(PG.b.farbe);
+  if (!F.gleich) box.append(el("div", {class: "info fehler"}, el("span", {}, t("kombi_flaeche_verschieden"))));
+  else if (F.umgerechnet) box.append(el("div", {class: "info"}, el("span", {}, t("kombi_flaeche_umgerechnet", {flaeche: areaText(F.ziel_mm2)}))));
+  if (d.hinweise.length) box.append(el("div", {class: "meldung"}, hintsText(d.hinweise)));
+  const dists = Z.art === "beide" ? DISTRIBUTIONS : [Z.art];
+  const grid = el("div", {class: dists.length > 1 ? "v-raster" : ""});
+  box.append(grid);
+  const signed = (x, st) => (x > 0 ? "+" : x < 0 ? "−" : "") + num(Math.abs(x), st);
+  const plots = [];
+  for (const dist of dists) {
+    const r = d[dist], ksOk = r.ks.p >= 0.05;
+    const div = el("div", {class: "pg-plot"});
+    grid.append(el("div", {},
+      el("div", {class: "kombi-schritt"}, distName(dist)),
+      el("div", {class: "kombi-zeile"}, t("pg_rms", {a: na, ra: num(r.rms_a, 3), rb: num(r.rms_b, 3)})),
+      el("div", {class: "kombi-zeile"}, t("pg_mittel", {m: signed(r.mittel, 3), txt: t(r.mittel > 0 ? "pg_hoeher" : "pg_tiefer")})),
+      el("div", {class: "kombi-zeile"}, t("pg_verh", {v: percent(r.verhaeltnis, 1), d: signed(100 * (r.verhaeltnis - 1), 1) + " %"})),
+      el("div", {class: "kombi-zeile"}, t("pg_ks", {a: na, D: num(r.ks.D, 3), p: pText(r.ks.p)}),
+        el("span", {class: ksOk ? "ja" : "nein"}, t(ksOk ? "pg_ks_ok" : "pg_ks_nein"))),
+      div));
+    plots.push([div, dist, r]);
+  }
+  if (!window.Plotly) return;
+  for (const [div, dist, r] of plots) {
+    const all = [...r.a.sigma, ...r.b.sigma], lo = Math.min(...all) * 0.9, hi = Math.max(...all) * 1.1;
+    const line = (L, a, b) => [a, b].map(s => L.steigung * Math.log(s) + L.achse);
+    const ys = [...r.a.y, ...r.b.y, ...line(r.a, lo, hi)];
+    const ylo = Math.max(Math.min(...r.a.y, ...r.b.y) - 0.5, Math.min(...ys)), yhi = Math.min(Math.max(...r.a.y, ...r.b.y) + 0.5, Math.max(...ys));
+    const seg = {x: [], y: []};
+    r.b.sigma.forEach((s, i) => { seg.x.push(s, s, null); seg.y.push(r.b.y[i], r.b.linie_a[i], null); });
+    const ticks = RESULT && RESULT.achsen ? RESULT.achsen.p_ticks[dist] : null;
+    const sticks = RESULT && RESULT.achsen ? RESULT.achsen.sigma_ticks.filter(v => v >= lo && v <= hi) : null;
+    smallPlot(div, [
+      {x: r.a.sigma, y: r.a.y, mode: "markers", name: t("pg_punkte_a", {a: na}), hoverinfo: "skip",
+        marker: {size: 5, color: transparent(ca, 0.25)}},
+      {x: [lo, hi], y: line(r.a, lo, hi), mode: "lines", name: na, line: {color: ca, width: 2.2}, hoverinfo: "skip"},
+      {x: [lo, hi], y: line(r.b, lo, hi), mode: "lines", name: `${nb}: ${t("pg_eigene")}`,
+        line: {color: cb, width: 1.2, dash: "dash"}, hoverinfo: "skip"},
+      {x: seg.x, y: seg.y, mode: "lines", name: t("pg_abstand"), line: {color: cb, width: 1}, opacity: 0.6, hoverinfo: "skip"},
+      {x: r.b.sigma, y: r.b.y, mode: "markers", name: `${nb} (n = ${r.b.sigma.length})`,
+        marker: {size: 7, color: cb}, customdata: r.b.y.map((y, i) => y - r.b.linie_a[i]),
+        hovertemplate: "σ = %{x:.1f} N/mm²<br>Δy = %{customdata:.3f}<extra></extra>"},
+    ], {titel: t("pg_plot_titel", {a: na, b: nb}), x: t("x_achse"), y: t("y_achse"), margin: {b: 96},
+      xaxis: Object.assign({type: "log", range: [Math.log10(lo), Math.log10(hi)]},
+        sticks && sticks.length ? {tickvals: sticks, ticktext: sticks.map(String)} : {}),
+      yaxis: Object.assign({range: [ylo, yhi]}, ticks ? {tickvals: ticks.y,
+        ticktext: LANG === "de" ? ticks.text : ticks.text.map(s => s.replace(",", "."))} : {})});
+  }
+}
+
 function fillViewList(views) {
   DATA.ansichten = views || {};
   const sel = $("sel-ansicht");
@@ -2199,7 +2631,7 @@ function applyView(view) {
   // Set fields that older views do not know to "off" instead of keeping
   // the state of the previous view
   Z.zielflaeche = "0"; Z.kombi = null; COMBINE = null;
-  Z.valid = null; VALID = null; Z.gv = null; GC = null;
+  Z.valid = null; VALID = null; Z.gv = null; GC = null; Z.pg = null; PG = null; Z.namensspalten = [];
   Object.assign(Z, JSON.parse(JSON.stringify(view)));
   const affected = [];
   for (const s of Z.serien) {
@@ -2212,7 +2644,7 @@ function applyView(view) {
   for (const [id, field] of SELECT_FIELDS) $(id).value = Z[field];
   fillAreaSelect();                          // the target area must occur in the current data
   document.querySelectorAll("[data-opt]").forEach(cb => { cb.checked = Z.optionen[cb.dataset.opt] !== false; });
-  drawHoverList();
+  drawHoverList(); drawSplitColumns();
   drawAll();
   return affected;
 }
