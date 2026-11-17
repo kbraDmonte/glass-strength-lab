@@ -306,6 +306,7 @@
             <button class="klein" id="btn-mw-aus" data-t="mw_aus">Ausblenden</button>
             <button class="klein" id="btn-mw-weg" data-t="mw_weg">Entfernen</button>
             <button class="klein" id="btn-mw-alle" data-t="mw_alle">Alle zeigen</button>
+            <button class="klein" id="btn-mw-leer" data-t="mw_leer" data-t-title="mw_leer_titel">Leere Serien entfernen</button>
           </div>
         </div>
       </details>
@@ -649,6 +650,8 @@ const TEXTS = {
     massen_hinweis: "Spalten, aus denen die Serien gebildet sind (markiert mit „Serien“), wirken auf ganze Serien. Jede andere Spalte wirkt auf die Messwerte in allen Serien – z. B. „Nur diese zeigen“ bei Ringgröße X behält in jeder Serie nur Ringgröße X. „Alle zeigen“ hebt alles wieder auf.",
     mw_serien: "Serien", mw_wert_m: "{wert}  ({k} Messwerte)",
     mw_alles_weg: "Damit wären alle Messwerte ausgeblendet – nicht ausgeführt.",
+    mw_leer: "Leere Serien entfernen", mw_leer_titel: "Alle Serien mit 0 Messwerten entfernen (z. B. nach dem Ausblenden von Messwerten)",
+    mw_leer_ok: "{k} Serie(n) ohne Messwerte entfernt.",
     mw_spalte: "– Spalte wählen –", mw_wert: "– Wert wählen –", mw_wert_n: "{wert}  ({k} Serien)",
     mw_nur: "Nur diese zeigen", mw_aus: "Ausblenden", mw_weg: "Entfernen", mw_alle: "Alle zeigen",
     mw_keine: "Keine Serie hat diesen Wert im Filter.", mw_weg_frage: "{k} Serie(n) entfernen?",
@@ -868,6 +871,8 @@ const TEXTS = {
     massen_hinweis: "Columns the series are built from (marked “series”) act on whole series. Any other column acts on the measurements inside all series – e.g. “Show only these” for ring size X keeps only ring size X in every series. “Show all” undoes everything.",
     mw_serien: "series", mw_wert_m: "{wert}  ({k} measurements)",
     mw_alles_weg: "That would hide all measurements – not done.",
+    mw_leer: "Remove empty series", mw_leer_titel: "Remove all series with 0 measurements (e.g. after hiding measurements)",
+    mw_leer_ok: "{k} series without measurements removed.",
     mw_spalte: "– choose column –", mw_wert: "– choose value –", mw_wert_n: "{wert}  ({k} series)",
     mw_nur: "Show only these", mw_aus: "Hide", mw_weg: "Remove", mw_alle: "Show all",
     mw_keine: "No series has this value in its filter.", mw_weg_frage: "Remove {k} series?",
@@ -1225,6 +1230,14 @@ function bindControls() {
   $("btn-mw-aus").addEventListener("click", () => bulkAction("aus"));
   $("btn-mw-weg").addEventListener("click", () => bulkAction("weg"));
   $("btn-mw-alle").addEventListener("click", showAll);
+  $("btn-mw-leer").addEventListener("click", () => {
+    const empty = Z.serien.filter(s => !seriesRows(s).length);
+    if (!empty.length) return;
+    Z.serien = Z.serien.filter(s => !empty.includes(s));
+    Z.aktiv = Math.max(0, Math.min(Z.aktiv, Z.serien.length - 1));
+    drawAll();
+    showInfo(t("mw_leer_ok", {k: empty.length}));
+  });
   $("hover-standard").addEventListener("click", () => { Z.hover = hoverDefaults(); drawHoverList(); recalculate(0); });
   $("btn-pg").addEventListener("click", () => pgCheck());
   for (const id of ["pg-a", "pg-b"]) $(id).addEventListener("change", () => {
@@ -1352,6 +1365,9 @@ function drawSeriesList() {
   if (!Z.serien.length) list.append(el("div", {class: "hinweis"}, t("keine_serie")));
   combineFillSelects(); validFillSelects(); gcFillSelects(); pgFillSelects(); fillValueSelect();
   $("btn-teilen").textContent = t(splitSeriesExist() ? "teilen_update" : "teilen_start");
+  const empty = Z.serien.filter(s => !seriesRows(s).length).length;
+  $("btn-mw-leer").disabled = !empty;
+  $("btn-mw-leer").textContent = t("mw_leer") + (empty ? ` (${empty})` : "");
 }
 
 function drawEditor() {
