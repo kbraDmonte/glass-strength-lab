@@ -13,6 +13,7 @@ pub mod table;
 pub mod validation;
 pub mod excel;
 pub mod text;
+pub mod xlsx;
 
 pub use data::{build_data, data_response, select_rows, series_rows, series_values, Data, Row,
                SeriesValues};

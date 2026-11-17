@@ -58,3 +58,32 @@ fn points_against_own_line_and_shifted_line() {
     let few = json!({"name": "leer", "filter": {col.name.clone(): ["gibt es nicht"]}});
     assert_eq!(v.request("/api/punkte_gerade", &json!({"serie_a": few, "serie_b": s}))["fehler_code"], "komb_zu_wenig");
 }
+
+#[test]
+fn xlsx_export_reads_back() {
+    use calamine::{open_workbook_from_rs, Data, Reader, Xlsx};
+    let v = viewer();
+    let t = v.request("/api/zeilen", &json!({"serien": [{"name": "alle", "filter": {}}]}));
+    let rows = t["serien"][0]["zeilen"].clone();
+    let bytes = viewer_core::xlsx::xlsx(&json!({"blaetter": [
+        {"name": "G1_1/Pos.1 <Air> & W", "spalten": t["spalten"], "zeilen": rows},
+        {"name": "zwei", "spalten": ["a", "b"], "zeilen": [["x", 1.5], ["–", "007"]]}]}));
+    let mut wb: Xlsx<_> = open_workbook_from_rs(std::io::Cursor::new(bytes.clone())).unwrap();
+    assert_eq!(wb.sheet_names(), ["G1_1Pos.1 <Air> & W", "zwei"]);
+    let r = wb.worksheet_range("G1_1Pos.1 <Air> & W").unwrap();
+    let d = v.data();
+    assert_eq!(r.height(), d.rows.len() + 1);
+    assert_eq!(r.get((0, d.header.len())), Some(&Data::String(d.strength_column.clone())));
+    // σ as a number, equal to the data
+    assert_eq!(r.get((1, d.header.len())), Some(&Data::Float(d.rows[0].sigma)));
+    let r2 = wb.worksheet_range("zwei").unwrap();
+    assert_eq!(r2.get((1, 1)), Some(&Data::Float(1.5)));
+    assert_eq!(r2.get((2, 1)), Some(&Data::String("007".into())));   // codes stay text
+    assert!(matches!(r2.get((2, 0)), None | Some(Data::Empty)));     // "–" = empty
+    // and the app itself can load the exported table again
+    let mut v2 = viewer_core::state::Viewer::new();
+    let one = viewer_core::xlsx::xlsx(&json!({"blaetter": [{"name": "Dataset", "spalten": t["spalten"], "zeilen": t["serien"][0]["zeilen"]}]}));
+    v2.upload(&one, "export.xlsx", "ersetzen").unwrap();
+    assert_eq!(v2.data().rows.len(), d.rows.len());
+    let _ = bytes;
+}

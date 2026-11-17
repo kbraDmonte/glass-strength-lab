@@ -12,3 +12,5 @@ calamine = "0.38"
 serde_json = { version = "1", features = ["preserve_order"] }
 regex = "1"
 sha2 = "0.10"
+# checksum for the .xlsx export (already compiled in through calamine)
+crc32fast = "1"

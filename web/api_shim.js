@@ -118,6 +118,8 @@
         storeViews(v);
         return JSON.stringify({ok: true, ansichten: v});
       }
+      case "/api/xlsx":                          // binary answer: the .xlsx file
+        return {bytes: viewer.xlsx(body || "{}")};
       default:
         return viewer.anfrage(path, body || "{}");
     }
@@ -130,6 +132,8 @@
     let text, status = 200;
     try {
       text = await answer(url, init);
+      if (text && text.bytes) return new Response(text.bytes, {status,
+        headers: {"Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}});
       if (text.length < 4000 && text.includes('"fehler_code"')) status = 400;
     } catch (e) {
       // e.g. a panic in the core ("unreachable"): report like the old server

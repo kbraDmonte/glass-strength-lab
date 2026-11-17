@@ -411,8 +411,10 @@
 <dialog class="tabelle" id="tabelle-dialog">
   <h2><span id="tab-titel"></span> <span class="rechts">
     <button class="klein" id="btn-tab-kopieren" data-t="tab_kopieren" data-t-title="tab_kopieren_titel">Für Excel kopieren</button>
+    <button class="klein" id="btn-tab-xlsx" data-t="tab_xlsx" data-t-title="tab_xlsx_titel">Excel</button>
     <button class="klein" id="btn-tab-csv" data-t="tab_csv">CSV</button>
-    <button class="klein" id="btn-tab-csv-alle" data-t="tab_csv_alle" data-t-title="tab_csv_alle_titel">CSV aller sichtbaren Serien</button>
+    <button class="klein" id="btn-tab-xlsx-alle" data-t="tab_xlsx_alle" data-t-title="tab_xlsx_alle_titel">Excel: alle sichtbaren Serien</button>
+    <button class="klein" id="btn-tab-csv-alle" data-t="tab_csv_alle" data-t-title="tab_csv_alle_titel">CSV: alle sichtbaren Serien</button>
     <button class="ikon" id="btn-tab-zu" data-t-title="schliessen">✕</button></span></h2>
   <div class="hinweis" id="tab-info"></div>
   <div class="tab-scroll" id="tab-inhalt"></div>
@@ -649,7 +651,10 @@ const TEXTS = {
     daten_zeigen: "Daten", daten_zeigen_titel: "Messwerte dieser Serie als Tabelle zeigen (zum Kopieren nach Excel)",
     autoname: "Auto", autoname_titel: "Name automatisch aus den Filtern bilden (Spalten in der Reihenfolge von „Serien bilden nach Spalten“, sonst alle gefilterten Spalten)",
     tab_kopieren: "Für Excel kopieren", tab_kopieren_titel: "Tabelle in die Zwischenablage kopieren – in Excel mit Strg+V einfügen",
-    tab_csv: "CSV", tab_csv_alle: "CSV aller sichtbaren Serien",
+    tab_csv: "CSV", tab_csv_alle: "CSV: alle sichtbaren Serien",
+    tab_xlsx: "Excel", tab_xlsx_titel: "Als Excel-Datei (.xlsx) speichern – mit Filterknöpfen in der Kopfzeile",
+    tab_xlsx_alle: "Excel: alle sichtbaren Serien", tab_alle: "Alle",
+    tab_xlsx_alle_titel: "Eine Excel-Datei: Blatt „Alle“ mit einer Spalte „Serie“, dazu ein Blatt je Serie",
     tab_csv_alle_titel: "Eine CSV-Datei mit den Messwerten aller sichtbaren Serien und einer Spalte „Serie“",
     tab_info: "{n} Messwerte · Originalwerte aus der Excel-Datei (ohne Prüfflächen-Umrechnung) · Klick auf eine Spaltenüberschrift sortiert.",
     tab_kopiert: "{n} Zeilen kopiert – in Excel mit Strg+V einfügen.", tab_kopieren_fehler: "Kopieren nicht möglich – bitte CSV verwenden.",
@@ -860,7 +865,10 @@ const TEXTS = {
     daten_zeigen: "Data", daten_zeigen_titel: "Show the measurements of this series as a table (to copy to Excel)",
     autoname: "Auto", autoname_titel: "Name the series automatically from its filters (columns in the order of “Create series by columns”, otherwise all filtered columns)",
     tab_kopieren: "Copy for Excel", tab_kopieren_titel: "Copy the table to the clipboard – paste into Excel with Ctrl+V",
-    tab_csv: "CSV", tab_csv_alle: "CSV of all visible series",
+    tab_csv: "CSV", tab_csv_alle: "CSV: all visible series",
+    tab_xlsx: "Excel", tab_xlsx_titel: "Save as an Excel file (.xlsx) – with filter buttons in the header row",
+    tab_xlsx_alle: "Excel: all visible series", tab_alle: "All",
+    tab_xlsx_alle_titel: "One Excel file: sheet “All” with a column “Series”, plus one sheet per series",
     tab_csv_alle_titel: "One CSV file with the measurements of all visible series and a column “Series”",
     tab_info: "{n} measurements · original values from the Excel file (no test-area conversion) · click a column header to sort.",
     tab_kopiert: "{n} rows copied – paste into Excel with Ctrl+V.", tab_kopieren_fehler: "Copying is not possible – please use CSV.",
@@ -1194,8 +1202,10 @@ function bindControls() {
   });
   $("btn-tab-zu").addEventListener("click", () => $("tabelle-dialog").close());
   $("btn-tab-kopieren").addEventListener("click", tableCopy);
-  $("btn-tab-csv").addEventListener("click", () => tableCsv(false));
-  $("btn-tab-csv-alle").addEventListener("click", () => tableCsv(true));
+  $("btn-tab-csv").addEventListener("click", () => tableExport(false, "csv"));
+  $("btn-tab-csv-alle").addEventListener("click", () => tableExport(true, "csv"));
+  $("btn-tab-xlsx").addEventListener("click", () => tableExport(false, "xlsx"));
+  $("btn-tab-xlsx-alle").addEventListener("click", () => tableExport(true, "xlsx"));
   $("btn-csv").addEventListener("click", csvExport);
   $("btn-kombi").addEventListener("click", () => combineCheck());
   for (const id of ["kombi-a", "kombi-b", "kombi-r"]) $(id).addEventListener("change", () => {
@@ -2495,14 +2505,33 @@ function downloadCsv(rows, fileName) {
   document.body.append(a); a.click(); a.remove();
 }
 const safeFileName = name => String(name).replace(/[\\/:*?"<>|]+/g, "_").trim() || "data";
-async function tableCsv(all) {
-  if (!all) return downloadCsv([TABLE.spalten, ...tableRows()], safeFileName(TABLE.name) + ".csv");
-  let d;
-  try { d = await fetchRows(Z.serien.filter(s => s.sichtbar)); }
-  catch (f) { $("tab-info").textContent = t("fehlgeschlagen", {text: f.message}); return; }
-  const rows = [[t("tab_serie"), ...d.spalten]];
-  for (const s of d.serien) for (const z of s.zeilen) rows.push([s.name, ...z]);
-  downloadCsv(rows, `Glass_Strength_Lab_${t("tab_datei")}.csv`);
+function downloadBlob(blob, fileName) {
+  const a = el("a", {href: URL.createObjectURL(blob), download: fileName});
+  document.body.append(a); a.click(); a.remove();
+}
+// .xlsx from the core: sheets = [{name, spalten, zeilen}] (raw values: numbers stay numbers)
+async function downloadXlsx(sheets, fileName) {
+  const r = await fetch("/api/xlsx", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({blaetter: sheets})});
+  if (!r.ok) throw new Error(await r.text());
+  downloadBlob(await r.blob(), fileName);
+}
+// Export the shown series (in the shown order) or all visible series, as CSV or .xlsx
+async function tableExport(all, format) {
+  try {
+    if (!all) {
+      const name = safeFileName(TABLE.name);
+      if (format === "csv") return downloadCsv([TABLE.spalten, ...tableRows()], name + ".csv");
+      return await downloadXlsx([{name: TABLE.name, spalten: TABLE.spalten, zeilen: tableRows()}], name + ".xlsx");
+    }
+    const d = await fetchRows(Z.serien.filter(s => s.sichtbar));
+    const header = [t("tab_serie"), ...d.spalten];
+    const rows = d.serien.flatMap(s => s.zeilen.map(z => [s.name, ...z]));
+    const fileName = `Glass_Strength_Lab_${t("tab_datei")}`;
+    if (format === "csv") return downloadCsv([header, ...rows], fileName + ".csv");
+    await downloadXlsx([{name: t("tab_alle"), spalten: header, zeilen: rows},
+      ...d.serien.map(s => ({name: s.name, spalten: d.spalten, zeilen: s.zeilen}))], fileName + ".xlsx");
+  } catch (f) { $("tab-info").textContent = t("fehlgeschlagen", {text: f.message}); }
 }
 
 // ---------------------------------------------------------------------------

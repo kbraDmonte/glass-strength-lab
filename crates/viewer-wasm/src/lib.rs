@@ -47,6 +47,11 @@ impl Viewer {
     pub fn anfrage(&self, path: &str, body: &str) -> String {
         self.0.request(path, &parse(body)).to_string()
     }
+
+    /// The data table as an .xlsx file (`{"blaetter": [{"name", "spalten", "zeilen"}]}`).
+    pub fn xlsx(&self, body: &str) -> Vec<u8> {
+        viewer_core::xlsx::xlsx(&parse(body))
+    }
 }
 
 impl Default for Viewer {

@@ -705,6 +705,7 @@ name = "viewer-core"
 version = "0.1.0"
 dependencies = [
  "calamine",
+ "crc32fast",
  "glass-stats",
  "regex",
  "serde_json",

@@ -51,7 +51,7 @@ compare and pool series, and validate the fits out of sample.
 | **Points against a line** | The points of one series against the fitted line of another, with the vertical distances that least squares evaluates, the mean strength ratio at equal probability of failure and a Kolmogorov–Smirnov test against the other series' distribution. |
 | **Group comparison** | Kruskal–Wallis test across all groups, Dunn post-hoc test (Holm or Bonferroni), compact letter display, p-value matrix. |
 | **Validation** | k-fold cross-validation, leave-one-out, repeated hold-out, bootstrap, Anderson–Darling with parametric bootstrap, leave-one-group-out. |
-| **Other** | Data table of a series with all Excel columns (sortable, copy to Excel, CSV), several Excel files at once, saved views (also as .json files), German/English, light/dark theme. |
+| **Other** | Data table of a series with all Excel columns (sortable, copy to Excel, export as .xlsx or CSV), several Excel files at once, saved views (also as .json files), German/English, light/dark theme. |
 
 ## Data format
 
