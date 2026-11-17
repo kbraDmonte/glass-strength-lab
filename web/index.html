@@ -1671,7 +1671,7 @@ function combineShow() {
   Plotly.newPlot(qq, [
     {x: [lo, hi], y: [lo, hi], mode: "lines", line: {color: css("--text-3"), dash: "dash", width: 1},
       name: t("kombi_diagonale"), hoverinfo: "skip"},
-    {x: d.qq.a, y: d.qq.b, mode: "markers", marker: {size: 5, color: displayColor(COMBINE.a.farbe)},
+    {x: d.qq.a, y: d.qq.b, mode: "markers", marker: {size: 5, color: css("--text")},
       name: "Q-Q", hovertemplate: "%{x:.1f} / %{y:.1f} N/mm²<extra></extra>"}],
     {title: {text: t("kombi_qq"), font: {size: 12}, x: 0.02, xanchor: "left"},
      margin: {l: 58, r: 10, t: 34, b: 50}, showlegend: false,
