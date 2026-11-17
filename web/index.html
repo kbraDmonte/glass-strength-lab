@@ -90,13 +90,17 @@
   .umschalter button + button{border-left:1px solid var(--rand-stark)}
   .umschalter button.aktiv{background:var(--akzent);color:#fff}
 
-  main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px;padding:16px 20px 60px;
+  main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px;padding:16px 20px;
        align-items:start}
+  main > section{padding-bottom:44px}   /* space at the end of the page; not in main, or the sticky left panel is pushed up */
   .karte{background:var(--flaeche);border:1px solid var(--rand);border-radius:var(--radius);
          padding:14px}
   .karte + .karte{margin-top:14px}
-  aside{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow-y:auto;
-        scrollbar-width:thin}
+  /* --kopf = height of the sticky header (set in JS). The left panel sticks right
+     below it and scrolls on its own; overscroll-behavior keeps its wheel
+     scrolling from moving the page. */
+  aside{position:sticky;top:calc(var(--kopf, 76px) + 16px);max-height:calc(100vh - var(--kopf, 76px) - 32px);
+        overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 
   /* --- Series list --- */
   .serie{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;
@@ -192,7 +196,6 @@
   .datei .n{font-variant-numeric:tabular-nums;color:var(--text-2);font-size:12px}
   .status{font-size:12px;color:var(--text-3);min-height:18px}
   /* --- Series tools: many series, duplicates, split, bulk actions --- */
-  #serienliste{max-height:420px;overflow-y:auto;scrollbar-width:thin}
   .serie .doppelt{color:var(--achtung);font-weight:700}
   .serien-warnung{font-size:12px;color:var(--achtung);margin:0 0 6px;white-space:pre-line}
   .serien-warnung:not(:empty){background:var(--achtung-hell);border-radius:6px;padding:5px 9px}
@@ -280,6 +283,8 @@
 
     <div class="karte">
       <h2><span data-t="pruefserien">Prüfserien</span> <span class="rechts">
+        <button class="klein" id="btn-undo" data-t-title="rueckgaengig_titel" disabled>↶</button>
+        <button class="klein" id="btn-redo" data-t-title="wiederholen_titel" disabled>↷</button>
         <button class="klein" id="btn-daten" data-t="daten_zeigen" data-t-title="daten_zeigen_titel">Daten</button>
         <button class="klein" id="btn-neu" data-t="plus_serie">+ Serie</button></span></h2>
       <div class="serien-warnung" id="serien-warnung"></div>
@@ -307,7 +312,7 @@
             <button class="klein" id="btn-mw-aus" data-t="mw_aus">Ausblenden</button>
             <button class="klein" id="btn-mw-weg" data-t="mw_weg">Entfernen</button>
             <button class="klein" id="btn-mw-alle" data-t="mw_alle">Alle zeigen</button>
-            <button class="klein" id="btn-mw-leer" data-t="mw_leer" data-t-title="mw_leer_titel">Leere Serien entfernen</button>
+            <button class="klein" id="btn-mw-leer" data-t="mw_leer" data-t-title="mw_leer_titel">Ausgeblendete Serien entfernen</button>
           </div>
         </div>
       </details>
@@ -659,14 +664,16 @@ const TEXTS = {
     teilen_uebersprungen: " {k} Kombination(en) mit weniger als 3 Messwerten übersprungen ({m} Messwerte).",
     teilen_viele: "Das ergibt {n} Serien. Fortfahren?",
     massen: "Nach Wert zeigen / ausblenden / entfernen …",
-    massen_hinweis: "Spalten, aus denen die Serien gebildet sind (markiert mit „Serien“), wirken auf ganze Serien. Jede andere Spalte wirkt auf die Messwerte in allen Serien – z. B. „Nur diese zeigen“ bei Ringgröße X behält in jeder Serie nur Ringgröße X. „Alle zeigen“ hebt alles wieder auf.",
-    mw_serien: "Serien", mw_wert_m: "{wert}  ({k} Messwerte)",
-    mw_alles_weg: "Damit wären alle Messwerte ausgeblendet – nicht ausgeführt.",
-    mw_leer: "Leere Serien entfernen", mw_leer_titel: "Alle Serien mit 0 Messwerten entfernen (z. B. nach dem Ausblenden von Messwerten)",
-    mw_leer_ok: "{k} Serie(n) ohne Messwerte entfernt.",
-    mw_spalte: "– Spalte wählen –", mw_wert: "– Wert wählen –", mw_wert_n: "{wert}  ({k} Serien)",
+    massen_hinweis: "Wirkt auf die sichtbaren Serien. Besteht eine Serie nur aus diesem Wert, wird sie als Ganzes gezeigt, ausgeblendet oder entfernt; Serien ohne diesen Wert blendet „Nur diese zeigen“ aus. Enthält eine Serie diesen Wert neben anderen, wird ihr Filter angepasst (wie bei „Serien aktualisieren“). Mehrere Schritte wirken nacheinander; Strg+Z macht einen Schritt rückgängig.",
+    mw_wert_m: "{wert}  ({k} Messwerte)",
+    mw_eingegrenzt: "Filter von {k} Serie(n) angepasst (Strg+Z macht es rückgängig).",
+    mw_leer: "Ausgeblendete Serien entfernen", mw_leer_titel: "Alle ausgeblendeten Serien aus der Liste löschen (Strg+Z macht es rückgängig)",
+    mw_leer_ok: "{k} ausgeblendete Serie(n) entfernt.", mw_leer_alle: "Alle Serien sind ausgeblendet – nichts entfernt.",
+    mw_spalte: "– Spalte wählen –", mw_wert: "– Wert wählen –",
     mw_nur: "Nur diese zeigen", mw_aus: "Ausblenden", mw_weg: "Entfernen", mw_alle: "Alle zeigen",
-    mw_keine: "Keine Serie hat diesen Wert im Filter.", mw_weg_frage: "{k} Serie(n) entfernen?",
+    mw_keine: "Keine Serie enthält Messwerte mit diesem Wert.", mw_weg_frage: "{k} Serie(n) entfernen?",
+    rueckgaengig_titel: "Rückgängig (Strg+Z)", wiederholen_titel: "Wiederholen (Strg+Y)",
+    rueckgaengig_ok: "Rückgängig gemacht.", wiederholen_ok: "Wiederholt.",
     doppelt_name: "Gleicher Name wie eine andere Serie, aber andere Messwerte",
     doppelt_daten: "Doppelt: gleiche Filter (gleiche Messwerte) wie „{name}“",
     warnung_doppelt_name: "⚠ Gleicher Name, aber verschiedene Messwerte: {namen}",
@@ -898,14 +905,16 @@ const TEXTS = {
     teilen_uebersprungen: " {k} combination(s) with fewer than 3 measurements skipped ({m} measurements).",
     teilen_viele: "This gives {n} series. Continue?",
     massen: "Show / hide / remove by value …",
-    massen_hinweis: "Columns the series are built from (marked “series”) act on whole series. Any other column acts on the measurements inside all series – e.g. “Show only these” for ring size X keeps only ring size X in every series. “Show all” undoes everything.",
-    mw_serien: "series", mw_wert_m: "{wert}  ({k} measurements)",
-    mw_alles_weg: "That would hide all measurements – not done.",
-    mw_leer: "Remove empty series", mw_leer_titel: "Remove all series with 0 measurements (e.g. after hiding measurements)",
-    mw_leer_ok: "{k} series without measurements removed.",
-    mw_spalte: "– choose column –", mw_wert: "– choose value –", mw_wert_n: "{wert}  ({k} series)",
+    massen_hinweis: "Acts on the visible series. A series made only of this value is shown, hidden or removed as a whole; series without the value are hidden by “Show only these”. A series that has this value among others gets its filter adjusted (like “Update series”). Steps stack; Ctrl+Z undoes one step.",
+    mw_wert_m: "{wert}  ({k} measurements)",
+    mw_eingegrenzt: "Filter of {k} series updated (Ctrl+Z undoes it).",
+    mw_leer: "Remove hidden series", mw_leer_titel: "Delete all hidden series from the list (Ctrl+Z undoes it)",
+    mw_leer_ok: "{k} hidden series removed.", mw_leer_alle: "All series are hidden – nothing removed.",
+    mw_spalte: "– choose column –", mw_wert: "– choose value –",
     mw_nur: "Show only these", mw_aus: "Hide", mw_weg: "Remove", mw_alle: "Show all",
-    mw_keine: "No series has this value in its filter.", mw_weg_frage: "Remove {k} series?",
+    mw_keine: "No series contains measurements with this value.", mw_weg_frage: "Remove {k} series?",
+    rueckgaengig_titel: "Undo (Ctrl+Z)", wiederholen_titel: "Redo (Ctrl+Y)",
+    rueckgaengig_ok: "Undone.", wiederholen_ok: "Redone.",
     doppelt_name: "Same name as another series, but different measurements",
     doppelt_daten: "Duplicate: same filters (same measurements) as “{name}”",
     warnung_doppelt_name: "⚠ Same name, but different measurements: {namen}",
@@ -1176,9 +1185,52 @@ function restoreState() {
     if (raw) Object.assign(Z, JSON.parse(raw));
   } catch (e) { /* continue without a saved state */ }
 }
+// Undo / redo: every saved state is a step. Changes within 600 ms count as one
+// step (an action often saves more than once; typing a name). Selecting a
+// series (Z.aktiv) alone is not a step.
+const UNDO = [], REDO = [];
+let LAST_STATE = null, LAST_STEP = 0, RESTORING = false;
+const stepKey = json => json.replace(/"aktiv":\d+,/, "");
 function saveState() {
-  try { localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(Z)); } catch (e) {}
+  const now = JSON.stringify(Z);
+  if (!RESTORING && LAST_STATE !== null && stepKey(now) !== stepKey(LAST_STATE)) {
+    if (Date.now() - LAST_STEP > 600 || !UNDO.length) {
+      UNDO.push(LAST_STATE);
+      if (UNDO.length > 200) UNDO.shift();
+    }
+    LAST_STEP = Date.now();
+    REDO.length = 0;
+  }
+  LAST_STATE = now;
+  drawUndoButtons();
+  try { localStorage.setItem(STATE_STORAGE_KEY, now); } catch (e) {}
 }
+function undoStep(back) {
+  const from = back ? UNDO : REDO, to = back ? REDO : UNDO;
+  if (!from.length || !DATA) return;
+  to.push(JSON.stringify(Z));
+  RESTORING = true;
+  try { applyView(JSON.parse(from.pop()), true); } finally { RESTORING = false; }
+  LAST_STATE = JSON.stringify(Z); LAST_STEP = 0;   // as restored (applyView adds empty fields)
+  drawUndoButtons();
+  showInfo(t(back ? "rueckgaengig_ok" : "wiederholen_ok"));
+}
+function drawUndoButtons() {
+  if ($("btn-undo")) $("btn-undo").disabled = !UNDO.length;
+  if ($("btn-redo")) $("btn-redo").disabled = !REDO.length;
+}
+document.addEventListener("keydown", ev => {
+  if (!(ev.ctrlKey || ev.metaKey) || ev.altKey) return;
+  const k = ev.key.toLowerCase();
+  if (k !== "z" && k !== "y") return;
+  // text fields keep their own undo
+  const tg = ev.target;
+  if (tg && (tg.isContentEditable || /^(TEXTAREA|SELECT)$/.test(tg.tagName)
+      || (tg.tagName === "INPUT" && !/^(checkbox|radio|button|range|color)$/.test(tg.type)))) return;
+  if (document.querySelector("dialog[open]")) return;
+  ev.preventDefault();
+  undoStep(k === "z" && !ev.shiftKey);
+});
 
 // ---------------------------------------------------------------------------
 // Counting (live in the browser)
@@ -1196,10 +1248,10 @@ function rowsMatching(filter, exceptColumn) {
 // Filter for all series (Z.global) on top of a series' own filter: columns of
 // both are intersected; an empty intersection matches nothing.
 const NOTHING = "\u0000";
-function withGlobal(filter) {
+function withGlobal(filter, skip) {
   const out = JSON.parse(JSON.stringify(filter || {}));
   for (const [c, values] of Object.entries(Z.global || {})) {
-    if (!values.length) continue;
+    if (!values.length || c === skip) continue;
     const both = out[c] ? out[c].filter(v => values.includes(v)) : [...values];
     out[c] = both.length ? both : [NOTHING];
   }
@@ -1208,10 +1260,10 @@ function withGlobal(filter) {
 
 // Combined series: union of several filters; each measurement counts once
 const partFilters = s => s.vereinigung || [s.filter];
-function seriesRows(s) {
-  if (!s.vereinigung) return rowsMatching(withGlobal(s.filter));
+function seriesRows(s, skip) {
+  if (!s.vereinigung) return rowsMatching(withGlobal(s.filter, skip));
   const seen = new Set();
-  for (const f of s.vereinigung) for (const z of rowsMatching(withGlobal(f))) seen.add(z);
+  for (const f of s.vereinigung) for (const z of rowsMatching(withGlobal(f, skip))) seen.add(z);
   return [...seen];
 }
 function cleanSeries(s) {
@@ -1268,6 +1320,8 @@ function bindControls() {
     s.autoname = true; drawSeriesList(); drawEditor(); recalculate(0);
   });
   $("btn-daten").addEventListener("click", () => showTable(Z.aktiv));
+  $("btn-undo").addEventListener("click", () => undoStep(true));
+  $("btn-redo").addEventListener("click", () => undoStep(false));
   $("tab-quelle").addEventListener("change", () => loadTable($("tab-quelle").value));
   $("btn-teilen").addEventListener("click", createSeriesByColumns);
   $("btn-teilen-leeren").addEventListener("click", () => {
@@ -1279,8 +1333,9 @@ function bindControls() {
   $("btn-mw-weg").addEventListener("click", () => bulkAction("weg"));
   $("btn-mw-alle").addEventListener("click", showAll);
   $("btn-mw-leer").addEventListener("click", () => {
-    const empty = Z.serien.filter(s => !seriesRows(s).length);
+    const empty = Z.serien.filter(s => !s.sichtbar);
     if (!empty.length) return;
+    if (empty.length === Z.serien.length) return showInfo(t("mw_leer_alle"), true);
     Z.serien = Z.serien.filter(s => !empty.includes(s));
     Z.aktiv = Math.max(0, Math.min(Z.aktiv, Z.serien.length - 1));
     drawAll();
@@ -1354,6 +1409,7 @@ function drawAll() {
 // Empty if the series has no filter on these columns.
 function autoName(s) {
   const f = s.filter || {};
+  if (!Object.values(f).some(v => v && v.length)) return t("alle_messwerte");   // no filter = all data
   const cols = Z.namensspalten.some(c => f[c]) ? Z.namensspalten
     : DATA.spalten.map(sp => sp.name).filter(c => f[c]);
   return cols.filter(c => f[c] && f[c].length).map(c => {
@@ -1419,7 +1475,7 @@ function drawSeriesList() {
   if (!Z.serien.length) list.append(el("div", {class: "hinweis"}, t("keine_serie")));
   combineFillSelects(); validFillSelects(); gcFillSelects(); pgFillSelects(); fillValueSelect();
   $("btn-teilen").textContent = t(splitSeriesExist() ? "teilen_update" : "teilen_start");
-  const empty = Z.serien.filter(s => !seriesRows(s).length).length;
+  const empty = Z.serien.filter(s => !s.sichtbar).length;
   $("btn-mw-leer").disabled = !empty;
   $("btn-mw-leer").textContent = t("mw_leer") + (empty ? ` (${empty})` : "");
 }
@@ -1563,57 +1619,75 @@ function createSeriesByColumns() {
 }
 
 
-// Bulk actions on the series list: series whose filter contains a value
-function seriesWithValue(column, key) {
-  return Z.serien.filter(s => partFilters(s).some(f => (f[column] || []).includes(key)));
+// Bulk actions (show only / hide / remove a value of any column). Decided by
+// the measurements actually in each series, not by which columns are in the
+// series' filters:
+// Only visible series are touched, so repeated actions stack.
+//   - a series made only of that value is shown / hidden / removed as a whole,
+//   - a series with no such measurement is hidden by "show only",
+//   - a series mixing it with other values gets its own filter narrowed (like
+//     "Update series"): only that value ("show only") or all but that value
+//     ("hide" / "remove"). So repeated actions stack, and series that are only
+//     hidden keep their measurements (n stays correct).
+// An older entry of the column in Z.global is ignored and dropped.
+function valueSplit(column, key) {
+  const i = DATA.spalten.findIndex(sp => sp.name === column);
+  const pure = [], mixed = [], without = [];
+  for (const s of Z.serien.filter(x => x.sichtbar)) {   // hidden series stay as they are
+    const rows = seriesRows(s, column);
+    const k = rows.filter(z => z[i] === key).length;
+    (k === 0 ? without : k === rows.length ? pure : mixed).push(s);
+  }
+  return {pure, mixed, without};
 }
-// A column the series are built on (in some series' own filter): the actions
-// act on whole series. Any other column: they act on the measurements inside
-// all series (via the filter for all series, Z.global).
-const isSeriesColumn = column => Z.serien.some(s => partFilters(s).some(f => f[column]));
 function fillValueSelect() {
   const cs = $("mw-spalte"), ws = $("mw-wert");
   const column = cs.value, before = ws.value;
   cs.innerHTML = ""; cs.append(el("option", {value: ""}, t("mw_spalte")));
-  for (const sp of DATA.spalten) cs.append(el("option", {value: sp.name},
-    sp.name + (isSeriesColumn(sp.name) ? ` (${t("mw_serien")})` : "")));
+  for (const sp of DATA.spalten) cs.append(el("option", {value: sp.name}, sp.name));
   cs.value = DATA.spalten.some(sp => sp.name === column) ? column : "";
   ws.innerHTML = ""; ws.append(el("option", {value: ""}, t("mw_wert")));
   const sp = DATA.spalten.find(x => x.name === cs.value);
   if (!sp) return;
-  const bySeries = isSeriesColumn(sp.name);
-  for (const w of sp.werte) {
-    const k = bySeries ? seriesWithValue(sp.name, w.schluessel).length : w.n;
-    if (k) ws.append(el("option", {value: w.schluessel},
-      t(bySeries ? "mw_wert_n" : "mw_wert_m", {wert: w.anzeige, k})));
-  }
+  for (const w of sp.werte) ws.append(el("option", {value: w.schluessel},
+    t("mw_wert_m", {wert: w.anzeige, k: w.n})));
   ws.value = [...ws.options].some(o => o.value === before) ? before : "";
 }
 function bulkAction(kind) {
   const column = $("mw-spalte").value, key = $("mw-wert").value;
   if (!column || !key) return;
-  if (!isSeriesColumn(column)) {
-    // measurements: keep only this value, or take it out
-    const sp = DATA.spalten.find(x => x.name === column);
-    const now = Z.global[column] || sp.werte.map(w => w.schluessel);
-    const keep = kind === "nur" ? [key] : now.filter(k => k !== key);
-    if (!keep.length) return showInfo(t("mw_alles_weg"), true);
-    if (keep.length === sp.werte.length) delete Z.global[column]; else Z.global[column] = keep;
-    return globalChanged();
+  const sp = DATA.spalten.find(x => x.name === column);
+  const {pure, mixed, without} = valueSplit(column, key);
+  if (!pure.length && !mixed.length) return showInfo(t("mw_keine"), true);
+  if (kind === "weg" && pure.length && !confirm(t("mw_weg_frage", {k: pure.length}))) return;
+  const all = sp.werte.map(w => w.schluessel);
+  const keep = kind === "nur" ? k => k === key : k => k !== key;
+  // narrow one filter; null if nothing would be left
+  const narrow = f => {
+    const values = (f[column] || all).filter(keep);
+    if (!values.length) return null;
+    const out = {...f};
+    if (values.length === all.length) delete out[column]; else out[column] = values;
+    return out;
+  };
+  for (const s of mixed) {
+    if (s.vereinigung) s.vereinigung = s.vereinigung.map(narrow).filter(Boolean);
+    else s.filter = narrow(s.filter);
   }
-  const hit = new Set(seriesWithValue(column, key));
-  if (!hit.size) return showInfo(t("mw_keine"), true);
-  if (kind === "weg") {
-    if (!confirm(t("mw_weg_frage", {k: hit.size}))) return;
-    Z.serien = Z.serien.filter(s => !hit.has(s));
+  // later "Update series" keeps the restriction
+  if (mixed.some(s => s.teilung) && Z.teilen_basis) Z.teilen_basis = narrow(Z.teilen_basis) || Z.teilen_basis;
+  delete Z.global[column];
+  if (kind === "weg" && pure.length) {
+    const drop = new Set(pure);
+    Z.serien = Z.serien.filter(s => !drop.has(s));
     Z.aktiv = Math.max(0, Math.min(Z.aktiv, Z.serien.length - 1));
-    return drawAll();
   }
-  for (const s of Z.serien) {
-    if (kind === "nur") s.sichtbar = hit.has(s);
-    else if (hit.has(s)) s.sichtbar = false;
-  }
-  drawSeriesList(); drawDiagrams(); drawTables(); saveState();
+  if (kind === "nur") {
+    for (const s of without) s.sichtbar = false;
+    for (const s of [...pure, ...mixed]) s.sichtbar = true;
+  } else if (kind === "aus") for (const s of pure) s.sichtbar = false;
+  drawGlobalFilter(); drawAll();
+  if (mixed.length) showInfo(t("mw_eingegrenzt", {k: mixed.length}));
 }
 function showAll() {
   Z.serien.forEach(s => { s.sichtbar = true; });
@@ -2292,14 +2366,18 @@ function gcSelectPair(ga, gb) {
 }
 // Two series as series 1 / 2 in "Combine series" and as line / points in
 // "Points against a fitted line"; both are checked and shown
-function selectPair(a, b, created = false) {
+async function selectPair(a, b, created = false) {
   const [ia, ib] = [String(Z.serien.indexOf(a)), String(Z.serien.indexOf(b))];
   Z.kombi = {a: ia, b: ib, r: (Z.kombi && Z.kombi.r) || "0.95", aktiv: true};
   Z.pg = {a: ia, b: ib, aktiv: true};
   if (created) drawSeriesList(); else { combineFillSelects(); pgFillSelects(); }
-  combineCheck(); pgCheck();
   if (created) recalculate();
-  $("kombi-ergebnis").closest(".karte").scrollIntoView({behavior: "smooth", block: "start"});
+  // after both results are drawn (the page above may change height), card top
+  // just below the sticky header
+  await Promise.all([combineCheck(), pgCheck()]);
+  const card = $("kombi-ergebnis").closest(".karte");
+  const header = document.querySelector("header");
+  window.scrollTo({top: card.getBoundingClientRect().top + window.scrollY - (header ? header.offsetHeight : 0) - 10, behavior: "smooth"});
 }
 
 function gcMatrix(div, d) {
@@ -2999,11 +3077,12 @@ function loadView() {
 
 // Apply a view -- from the list or from a file. Returns: names of the
 // series whose filters did not match the loaded data.
-function applyView(view) {
+function applyView(view, undo) {
   // Set fields that older views do not know to "off" instead of keeping
-  // the state of the previous view
-  Z.zielflaeche = "0"; Z.kombi = null; COMBINE = null;
-  Z.valid = null; VALID = null; Z.gv = null; GC = null; Z.pg = null; PG = null; Z.pm = null; PM = null; Z.namensspalten = []; Z.global = {}; Z.teilen_auswahl = null; Z.teilen_basis = null;
+  // the state of the previous view (undo: a full state, results are kept)
+  if (!undo) { COMBINE = null; VALID = null; GC = null; PG = null; PM = null; }
+  Z.zielflaeche = "0"; Z.kombi = null;
+  Z.valid = null; Z.gv = null; Z.pg = null; Z.pm = null; Z.namensspalten = []; Z.global = {}; Z.teilen_auswahl = null; Z.teilen_basis = null;
   Object.assign(Z, JSON.parse(JSON.stringify(view)));
   const affected = [];
   for (const s of Z.serien) {
@@ -3052,6 +3131,14 @@ async function importView(file) {
 // Plotly loaded from the internet (see loadPlotlyFallback in the head): draw now
 window.plotlyLoaded = () => { if (DATA) drawDiagrams(); };
 translateStatic();          // before loading the data, so that nothing flashes in the wrong language
+// Header height → --kopf (the left panel sticks right below the header; the
+// header wraps onto more lines in narrow windows)
+{
+  const header = document.querySelector("header");
+  const setHeight = () => document.documentElement.style.setProperty("--kopf", header.offsetHeight + "px");
+  setHeight();
+  new ResizeObserver(setHeight).observe(header);
+}
 start().catch(f => showMessage(t("start_fehlgeschlagen", {text: f.message})));
 </script>
 </body>
