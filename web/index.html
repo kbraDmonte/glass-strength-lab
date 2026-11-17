@@ -186,6 +186,7 @@
   .v-plot{width:100%;height:320px}
   .buchstabe{font-weight:700;letter-spacing:.08em;color:var(--akzent-text)}
   .gv-matrix{width:100%;height:380px}
+  .gv-matrix .nsewdrag{cursor:pointer !important}
   .datei{display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:13px}
   .datei .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .datei .n{font-variant-numeric:tabular-nums;color:var(--text-2);font-size:12px}
@@ -390,7 +391,7 @@
       <div id="gv-ergebnis"></div>
     </div>
     <div class="karte" style="margin-top:14px">
-      <h2 data-t="kombi_titel">Datensätze kombinieren</h2>
+      <h2 data-t="kombi_titel">Serien kombinieren</h2>
       <p class="hinweis" data-t="kombi_hinweis"></p>
       <div class="kombi-auswahl">
         <div class="feld"><label data-t="kombi_serie1">Serie 1</label><select id="kombi-a"></select></div>
@@ -530,8 +531,8 @@ const TEXTS = {
     fehler_zu_gross: "Die Datei ist größer als {mb} MB.",
     fehler_doppelt: "„{datei}“ ist mit genau diesem Inhalt schon geladen – sonst würden Messungen doppelt gezählt.",
     schliessen: "Schließen",
-    kombi_titel: "Datensätze kombinieren",
-    kombi_hinweis: "Ablauf: 1. Anderson-Darling je Serie (ist die Weibull-Verteilung gerechtfertigt?) · 2. Pearson-Korrelation der beiden Datensätze · 3. bei Korrelation: neue Serie aus allen Daten, darauf Anderson-Darling. Serien mit verschiedenen Prüfflächen werden nur nach der Umrechnung kombiniert (oben „Prüffläche“ wählen).",
+    kombi_titel: "Serien kombinieren",
+    kombi_hinweis: "Ablauf: 1. Anderson-Darling je Serie (ist die Weibull-Verteilung gerechtfertigt?) · 2. Pearson-Korrelation der beiden Serien · 3. bei Korrelation: neue Serie aus allen Daten, darauf Anderson-Darling. Serien mit verschiedenen Prüfflächen werden nur nach der Umrechnung kombiniert (oben „Prüffläche“ wählen).",
     kombi_serie1: "Serie 1", kombi_serie2: "Serie 2", kombi_schwelle: "Korrelation ab", kombi_pruefen: "Prüfen",
     kombi_gleich: "Bitte zwei verschiedene Serien wählen.",
     fehler_komb_zu_wenig: "„{name}“ hat nur {n} Messwert(e) – mindestens 3 nötig.",
@@ -540,7 +541,7 @@ const TEXTS = {
     kombi_flaeche_umgerechnet: "Beide Serien sind auf {flaeche} umgerechnet.",
     kombi_flaeche_gleich: "Beide Serien haben dieselbe Prüffläche – keine Umrechnung nötig.",
     kombi_flaeche_unbekannt: "Für einen Teil der Messungen ist keine Ringgröße bekannt – ob die Prüfflächen übereinstimmen, lässt sich nicht prüfen.",
-    kombi_schritt1: "1 · Anderson-Darling je Serie", kombi_schritt2: "2 · Pearson-Korrelation der Datensätze",
+    kombi_schritt1: "1 · Anderson-Darling je Serie", kombi_schritt2: "2 · Pearson-Korrelation der Serien",
     kombi_schritt3: "3 · Kombinierte Serie", kombi_ad: "AD (α = 5 %)",
     kombi_ad_ok: "✓ nicht abgelehnt", kombi_ad_nein: "✗ abgelehnt",
     kombi_pearson: "r = {r}  ·  {paare} Paare  ·  p {p}  –  auf ln σ, gepaart über gleiche Bruchwahrscheinlichkeit",
@@ -616,7 +617,7 @@ const TEXTS = {
     gv_anlegen: "Serie aus „{b}“ anlegen",
     gv_matrix: "Dunn-Test, korrigierte p-Werte",
     gv_unterschied: "unterscheiden sich", gv_kein_unterschied: "kein Unterschied nachweisbar",
-    gv_grenze: "Dunn vergleicht nur das Niveau, nicht die Streuung: zwei Gruppen mit gleichem Median können ein ganz anderes m haben. Die Form prüft der Anderson-Darling-Test unter „Datensätze kombinieren“.",
+    gv_grenze: "Dunn vergleicht nur das Niveau, nicht die Streuung: zwei Gruppen mit gleichem Median können ein ganz anderes m haben. Die Form prüft der Anderson-Darling-Test unter „Serien kombinieren“.",
     gv_zu_klein: "Nicht berücksichtigt (weniger als 3 Messwerte): {liste}", gv_gekuerzt: "Nur die {n} größten Gruppen verglichen.",
     pruefflaeche: "Prüffläche", keine_umrechnung: "keine Umrechnung", ring: "Ring",
     pruefflaeche_titel: "Messwerte je Ringgröße mit σ·(A0/A1)^(1/m) auf eine gemeinsame Prüffläche umrechnen (Gl. 2.46)",
@@ -687,6 +688,8 @@ const TEXTS = {
     pg_ks: "KS-Test der Punkte gegen die Verteilung von „{a}“: D = {D}, p {p} – ",
     pg_ks_ok: "verträglich (nicht abgelehnt, α = 5 %)", pg_ks_nein: "weicht ab (abgelehnt, α = 5 %)",
     pg_plot_titel: "Punkte: {b}  ·  Gerade: {a}",
+    pg_band: "Konfidenzband {name}",
+    gv_klick: "Klick auf ein Feld wählt die beiden Gruppen unten in „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“ aus und prüft sie. Beim Aufteilen einer Serie werden die beiden Serien dafür angelegt.",
     hinweis_filter: "Klick auf eine Serie öffnet ihre Filter unten. Die Filter wirken wie im Konfigurator: UND zwischen Spalten, ODER innerhalb einer Spalte.",
     serie_bearbeiten: "Serie bearbeiten", name_platzhalter: "Name der Serie",
     anzeige: "Anzeige", messpunkte: "Messpunkte", gerade: "Ausgleichsgerade",
@@ -751,8 +754,8 @@ const TEXTS = {
     fehler_zu_gross: "The file is larger than {mb} MB.",
     fehler_doppelt: "“{datei}” with exactly this content is already loaded – measurements would be counted twice.",
     schliessen: "Close",
-    kombi_titel: "Combine datasets",
-    kombi_hinweis: "Procedure: 1. Anderson-Darling per series (is the Weibull distribution justified?) · 2. Pearson correlation of the two datasets · 3. if correlated: new series from all data, with Anderson-Darling. Series with different test areas are only combined after conversion (choose a “Test area” above).",
+    kombi_titel: "Combine series",
+    kombi_hinweis: "Procedure: 1. Anderson-Darling per series (is the Weibull distribution justified?) · 2. Pearson correlation of the two series · 3. if correlated: new series from all data, with Anderson-Darling. Series with different test areas are only combined after conversion (choose a “Test area” above).",
     kombi_serie1: "Series 1", kombi_serie2: "Series 2", kombi_schwelle: "Correlation from", kombi_pruefen: "Check",
     kombi_gleich: "Please choose two different series.",
     fehler_komb_zu_wenig: "“{name}” has only {n} measurement(s) – at least 3 needed.",
@@ -761,7 +764,7 @@ const TEXTS = {
     kombi_flaeche_umgerechnet: "Both series are converted to {flaeche}.",
     kombi_flaeche_gleich: "Both series have the same test area – no conversion needed.",
     kombi_flaeche_unbekannt: "For some measurements no ring size is known – whether the test areas match cannot be checked.",
-    kombi_schritt1: "1 · Anderson-Darling per series", kombi_schritt2: "2 · Pearson correlation of the datasets",
+    kombi_schritt1: "1 · Anderson-Darling per series", kombi_schritt2: "2 · Pearson correlation of the series",
     kombi_schritt3: "3 · Combined series", kombi_ad: "AD (α = 5 %)",
     kombi_ad_ok: "✓ not rejected", kombi_ad_nein: "✗ rejected",
     kombi_pearson: "r = {r}  ·  {paare} pairs  ·  p {p}  –  on ln σ, paired by equal probability of failure",
@@ -837,7 +840,7 @@ const TEXTS = {
     gv_anlegen: "Create series from “{b}”",
     gv_matrix: "Dunn test, adjusted p-values",
     gv_unterschied: "differ", gv_kein_unterschied: "no difference detectable",
-    gv_grenze: "Dunn compares only the level, not the scatter: two groups with the same median can have a very different m. The shape is checked by the Anderson-Darling test under “Combine datasets”.",
+    gv_grenze: "Dunn compares only the level, not the scatter: two groups with the same median can have a very different m. The shape is checked by the Anderson-Darling test under “Combine series”.",
     gv_zu_klein: "Not included (fewer than 3 measurements): {liste}", gv_gekuerzt: "Only the {n} largest groups compared.",
     pruefflaeche: "Test area", keine_umrechnung: "no conversion", ring: "ring",
     pruefflaeche_titel: "Convert measurements per ring size with σ·(A0/A1)^(1/m) to a common test area (eq. 2.46)",
@@ -908,6 +911,8 @@ const TEXTS = {
     pg_ks: "KS test of the points against the distribution of “{a}”: D = {D}, p {p} – ",
     pg_ks_ok: "consistent (not rejected, α = 5 %)", pg_ks_nein: "differs (rejected, α = 5 %)",
     pg_plot_titel: "Points: {b}  ·  Line: {a}",
+    pg_band: "confidence band {name}",
+    gv_klick: "Click a cell to select the two groups below in “Combine series” and “Points against a fitted line” and check them. When splitting one series, the two series are created for this.",
     hinweis_filter: "Click a series to edit its filters below. Filters combine like in the Konfigurator: AND across columns, OR within a column.",
     serie_bearbeiten: "Edit series", name_platzhalter: "Series name",
     anzeige: "Display", messpunkte: "Data points", gerade: "Fitted line",
@@ -1685,7 +1690,7 @@ function applyData(fresh, message) {
 }
 
 // ---------------------------------------------------------------------------
-// Combine datasets: AD per series → Pearson → combined series with AD
+// Combine series: AD per series → Pearson → combined series with AD
 // ---------------------------------------------------------------------------
 let COMBINE = null;                 // last check {antwort, a, b} or null
 
@@ -2199,11 +2204,48 @@ function gcShow() {
   left.append(el("p", {class: "hinweis"}, t("gv_grenze")));
 
   const matrix = el("div", {class: "gv-matrix"});
-  const grid = el("div", {class: "kombi-raster"}, left, el("div", {}, matrix));
+  const grid = el("div", {class: "kombi-raster"}, left,
+    el("div", {}, matrix, el("p", {class: "hinweis"}, t("gv_klick"))));
   if (d.gruppen.length > 8) grid.style.gridTemplateColumns = "1fr";
   matrix.style.height = `${Math.max(340, 34 * d.gruppen.length + 160)}px`;
   box.append(grid);
-  if (window.Plotly) gcMatrix(matrix, d);
+  if (!window.Plotly) return;
+  gcMatrix(matrix, d);
+  matrix.on("plotly_click", ev => {
+    const pt = ev.points && ev.points[0];
+    if (!pt || pt.data.type !== "heatmap") return;
+    const [i, j] = pt.pointIndex;          // row, column
+    if (i !== j) gcSelectPair(d.gruppen[i], d.gruppen[j]);
+  });
+}
+
+// Dunn matrix cell → the two groups as series 1 / 2 in "Combine series" and
+// "Points against a fitted line" (line of the first, points of the second).
+// Groups of a split series that are not series yet are created.
+function gcSelectPair(ga, gb) {
+  const {antwort: d, quelle: source, spalte: column} = GC;
+  let created = false;
+  const seriesFor = g => {
+    if (d.modus === "serien") return (source.find(x => x.i === g.index) || {}).s;
+    if (!source || source.vereinigung) return null;
+    const filter = Object.assign(JSON.parse(JSON.stringify(source.filter)), {[column]: [g.schluessel]});
+    let s = Z.serien.find(x => !x.vereinigung && filterKey(x) === filterKey({filter}));
+    if (!s) {
+      s = newSeries(`${source.name} · ${g.name}`, filter);
+      Z.serien.push(s);
+      created = true;
+    }
+    return s;
+  };
+  const a = seriesFor(ga), b = seriesFor(gb);
+  if (!a || !b) return showInfo(t("kombi_nicht_teilen"), true);
+  const [ia, ib] = [String(Z.serien.indexOf(a)), String(Z.serien.indexOf(b))];
+  Z.kombi = {a: ia, b: ib, r: (Z.kombi && Z.kombi.r) || "0.95", aktiv: true};
+  Z.pg = {a: ia, b: ib, aktiv: true};
+  if (created) drawSeriesList(); else { combineFillSelects(); pgFillSelects(); }
+  combineCheck(); pgCheck();
+  if (created) recalculate();
+  $("kombi-ergebnis").closest(".karte").scrollIntoView({behavior: "smooth", block: "start"});
 }
 
 function gcMatrix(div, d) {
@@ -2715,7 +2757,12 @@ function pgShow() {
   }
   if (!window.Plotly) return;
   for (const [div, dist, r] of plots) {
-    const all = [...r.a.sigma, ...r.b.sigma], lo = Math.min(...all) * 0.9, hi = Math.max(...all) * 1.1;
+    const B = r.band, lo = B.sigma[0], hi = B.sigma[B.sigma.length - 1];
+    // confidence bands of both fits: upper edge, then lower edge filled to it
+    const band = (up, down, color, name) => [
+      {x: B.sigma, y: up, mode: "lines", line: {width: 0.8, dash: "dot", color}, hoverinfo: "skip", showlegend: false, legendgroup: name},
+      {x: B.sigma, y: down, mode: "lines", line: {width: 0.8, dash: "dot", color}, fill: "tonexty",
+        fillcolor: transparent(color, 0.10), hoverinfo: "skip", name, legendgroup: name}];
     const line = (L, a, b) => [a, b].map(s => L.steigung * Math.log(s) + L.achse);
     const ys = [...r.a.y, ...r.b.y, ...line(r.a, lo, hi)];
     const ylo = Math.max(Math.min(...r.a.y, ...r.b.y) - 0.5, Math.min(...ys)), yhi = Math.min(Math.max(...r.a.y, ...r.b.y) + 0.5, Math.max(...ys));
@@ -2724,6 +2771,8 @@ function pgShow() {
     const ticks = RESULT && RESULT.achsen ? RESULT.achsen.p_ticks[dist] : null;
     const sticks = RESULT && RESULT.achsen ? RESULT.achsen.sigma_ticks.filter(v => v >= lo && v <= hi) : null;
     smallPlot(div, [
+      ...band(B.a_oben, B.a_unten, ca, t("pg_band", {name: na})),
+      ...band(B.b_oben, B.b_unten, cb, t("pg_band", {name: nb})),
       {x: r.a.sigma, y: r.a.y, mode: "markers", name: t("pg_punkte_a", {a: na}), hoverinfo: "skip",
         marker: {size: 5, color: transparent(ca, 0.25)}},
       {x: [lo, hi], y: line(r.a, lo, hi), mode: "lines", name: na, line: {color: ca, width: 2.2}, hoverinfo: "skip"},

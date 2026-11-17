@@ -87,3 +87,22 @@ fn xlsx_export_reads_back() {
     assert_eq!(v2.data().rows.len(), d.rows.len());
     let _ = bytes;
 }
+
+#[test]
+fn points_vs_line_bands_contain_the_lines() {
+    let v = viewer();
+    let s = json!({"name": "alle", "filter": {}});
+    let r = v.request("/api/punkte_gerade", &json!({"serie_a": s, "serie_b": s}));
+    for dist in ["weibull", "lognormal"] {
+        let d = &r[dist];
+        let b = &d["band"];
+        let sig = b["sigma"].as_array().unwrap();
+        assert_eq!(sig.len(), 81);
+        for (i, s) in sig.iter().enumerate() {
+            let x = s.as_f64().unwrap().ln();
+            let line = d["a"]["steigung"].as_f64().unwrap() * x + d["a"]["achse"].as_f64().unwrap();
+            let (lo, hi) = (b["a_oben"][i].as_f64().unwrap(), b["a_unten"][i].as_f64().unwrap());
+            assert!(lo <= line + 1e-5 && line <= hi + 1e-5, "{dist} {i}: {lo} {line} {hi}");
+        }
+    }
+}

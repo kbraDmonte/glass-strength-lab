@@ -47,9 +47,9 @@ compare and pool series, and validate the fits out of sample.
 | **Plots** | Weibull and/or log-normal probability paper, overlaid or one per series. Fitted line with its equation, confidence band, 5 % fractile with its 95 % confidence bound. |
 | **Results** | m and β (or μ and s), R², A², min/max/mean, both fractiles, scatter of the data (σx, coefficient of variation) and of the fitted distribution. CSV export. |
 | **Test-area conversion** | Size effect σ_A1 = σ_A0 · (A0/A1)^(1/m), applied per ring size. The target is a standard set-up or any ring size in the data. |
-| **Combine datasets** | Anderson–Darling test per series, Pearson correlation of Q-Q pairs, two-sample Anderson–Darling test and a Q-Q plot. Creates the pooled series. |
-| **Points against a line** | The points of one series against the fitted line of another, with the vertical distances that least squares evaluates, the mean strength ratio at equal probability of failure and a Kolmogorov–Smirnov test against the other series' distribution. |
-| **Group comparison** | Kruskal–Wallis test across all groups, Dunn post-hoc test (Holm or Bonferroni), compact letter display, p-value matrix. |
+| **Combine series** | Anderson–Darling test per series, Pearson correlation of Q-Q pairs, two-sample Anderson–Darling test and a Q-Q plot. Creates the pooled series. |
+| **Points against a line** | The points of one series against the fitted line of another (both with their confidence bands), with the vertical distances that least squares evaluates, the mean strength ratio at equal probability of failure and a Kolmogorov–Smirnov test against the other series' distribution. |
+| **Group comparison** | Kruskal–Wallis test across all groups, Dunn post-hoc test (Holm or Bonferroni), compact letter display, p-value matrix. Clicking a cell of the matrix selects the pair for combining and for the points-against-a-line check. |
 | **Validation** | k-fold cross-validation, leave-one-out, repeated hold-out, bootstrap, Anderson–Darling with parametric bootstrap, leave-one-group-out. |
 | **Other** | Data table of a series with all Excel columns (sortable, copy to Excel, export as .xlsx or CSV), several Excel files at once, saved views (also as .json files), German/English, light/dark theme. |
 

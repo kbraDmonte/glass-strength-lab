@@ -252,6 +252,12 @@ pub fn points_vs_line(data: &Data, req: &Value) -> Value {
     };
     let r = |v: &[f64], d: usize| v.iter().map(|x| round_to(*x, d)).collect::<Vec<_>>();
     let mut out = serde_json::Map::new();
+    // common σ grid for the lines and their confidence bands (log-spaced, 10 % margin)
+    let all = parts[0].1.sigma.iter().chain(&parts[1].1.sigma);
+    let (lo, hi) = all.fold((f64::INFINITY, 0.0f64), |(a, b), &s| (a.min(s), b.max(s)));
+    let (lo, hi) = ((lo * 0.9).ln(), (hi * 1.1).ln());
+    let grid: Vec<f64> = (0..=80).map(|i| lo + (hi - lo) * i as f64 / 80.0).collect();
+    let band = |f: &glass_stats::Fit, lower: bool| r(&grid.iter().map(|&x| f.band_y(x, lower)).collect::<Vec<_>>(), 6);
     for (key, fa, fb) in [("weibull", &fits[0].0, &fits[1].0), ("lognormal", &fits[0].1, &fits[1].1)] {
         let n = fb.n as f64;
         let line_a: Vec<f64> = fb.x.iter().map(|&x| fa.line_y(x)).collect();
@@ -270,6 +276,9 @@ pub fn points_vs_line(data: &Data, req: &Value) -> Value {
                   "linie_a": r(&line_a, 6), "kennwerte": result_values(fb)},
             "rms_a": rms_a, "rms_b": rms_b, "mittel": res.iter().sum::<f64>() / n,
             "verhaeltnis": ln_ratio.exp(),
+            "band": {"sigma": r(&grid.iter().map(|x| x.exp()).collect::<Vec<_>>(), 4),
+                     "a_unten": band(fa, true), "a_oben": band(fa, false),
+                     "b_unten": band(fb, true), "b_oben": band(fb, false)},
             "ks": {"D": d, "p": glass_stats::ks::ks_pvalue(d, fb.n)},
         }));
     }
