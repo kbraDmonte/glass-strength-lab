@@ -30,7 +30,7 @@
     --text:#1b1b1a; --text-2:#5c5c58; --text-3:#8a8a84; --text-aus:#b5b5ae;
     --akzent:#2a78d6; --akzent-hell:#eaf2fc; --akzent-rand:#b9d4f2;
     --akzent-dunkel:#2064b4; --akzent-text:#2a78d6;
-    --gut:#1baf7a; --gut-text:#137a55; --warn:#b3261e; --warn-hell:#fdeceb;
+    --gut:#1baf7a; --gut-text:#137a55; --warn:#b3261e; --warn-hell:#fdeceb; --achtung:#8a5a00; --achtung-hell:#fff4d6;
     --hover:#f2f2f0; --hover-knopf:#fafaf9;
     --gitter:#e6e6e2; --achse:#8a8a84; --linie-5:#b3261e;
     --zweit:#eb6834; --sig:#f4a582; --nsig:#cde2fb;
@@ -44,7 +44,7 @@
       --text:#ecebe6; --text-2:#b4b3ac; --text-3:#8a8982; --text-aus:#5b5a55;
       --akzent:#3a7fd5; --akzent-hell:#1b2c42; --akzent-rand:#2f5687;
       --akzent-dunkel:#4b8fe2; --akzent-text:#7fb4f0;
-      --gut:#3cc794; --gut-text:#56d3a3; --warn:#f07167; --warn-hell:#3a1d1b;
+      --gut:#3cc794; --gut-text:#56d3a3; --warn:#f07167; --warn-hell:#3a1d1b; --achtung:#e8b53d; --achtung-hell:#3a2f12;
       --hover:#2a2a27; --hover-knopf:#262624;
       --gitter:#30302c; --achse:#6c6b65; --linie-5:#f07167;
       --zweit:#f08a5d; --sig:#7a3a22; --nsig:#1b2c42;
@@ -56,7 +56,7 @@
     --text:#ecebe6; --text-2:#b4b3ac; --text-3:#8a8982; --text-aus:#5b5a55;
     --akzent:#3a7fd5; --akzent-hell:#1b2c42; --akzent-rand:#2f5687;
     --akzent-dunkel:#4b8fe2; --akzent-text:#7fb4f0;
-    --gut:#3cc794; --gut-text:#56d3a3; --warn:#f07167; --warn-hell:#3a1d1b;
+    --gut:#3cc794; --gut-text:#56d3a3; --warn:#f07167; --warn-hell:#3a1d1b; --achtung:#e8b53d; --achtung-hell:#3a2f12;
     --hover:#2a2a27; --hover-knopf:#262624;
     --gitter:#30302c; --achse:#6c6b65; --linie-5:#f07167;
     --zweit:#f08a5d; --sig:#7a3a22; --nsig:#1b2c42;
@@ -192,8 +192,10 @@
   .status{font-size:12px;color:var(--text-3);min-height:18px}
   /* --- Series tools: many series, duplicates, split, bulk actions --- */
   #serienliste{max-height:420px;overflow-y:auto;scrollbar-width:thin}
-  .serie .doppelt{color:var(--warn);font-weight:700}
-  .serien-warnung{font-size:12px;color:var(--warn);margin:0 0 6px;white-space:pre-line}
+  .serie .doppelt{color:var(--achtung);font-weight:700}
+  .serien-warnung{font-size:12px;color:var(--achtung);margin:0 0 6px;white-space:pre-line}
+  .serien-warnung:not(:empty){background:var(--achtung-hell);border-radius:6px;padding:5px 9px}
+  .global-aktiv{font-size:12px;color:var(--akzent-text);margin:0 0 6px}
   .werkzeug{padding:6px 9px 9px}
   .werkzeug select{width:100%;margin-top:4px}
   .reihe{display:inline-block;min-width:18px;text-align:center;font-size:11px;font-weight:700;
@@ -276,8 +278,11 @@
     </div>
 
     <div class="karte">
-      <h2><span data-t="pruefserien">Prüfserien</span> <span class="rechts"><button class="klein" id="btn-neu" data-t="plus_serie">+ Serie</button></span></h2>
+      <h2><span data-t="pruefserien">Prüfserien</span> <span class="rechts">
+        <button class="klein" id="btn-daten" data-t="daten_zeigen" data-t-title="daten_zeigen_titel">Daten</button>
+        <button class="klein" id="btn-neu" data-t="plus_serie">+ Serie</button></span></h2>
       <div class="serien-warnung" id="serien-warnung"></div>
+      <div class="global-aktiv" id="global-aktiv"></div>
       <div id="serienliste"></div>
       <details class="filter" id="teilen-box">
         <summary data-t="teilen">Serien bilden nach …</summary>
@@ -285,9 +290,16 @@
           <p class="hinweis" data-t="teilen_hinweis"></p>
           <div class="f-liste" id="teilen-spalten"></div>
           <div class="aktionen">
-            <button class="klein primaer" id="btn-teilen" data-t="teilen_start">Serien bilden</button>
+            <button class="klein primaer" id="btn-teilen">Serien bilden</button>
             <button class="klein" id="btn-teilen-leeren" data-t="auswahl_aufheben">Auswahl aufheben</button>
           </div>
+        </div>
+      </details>
+      <details class="filter" id="global-box">
+        <summary><span data-t="global">Filter für alle Serien …</span><span class="wahl" id="global-wahl"></span></summary>
+        <div class="werkzeug">
+          <p class="hinweis" data-t="global_hinweis"></p>
+          <div id="global-filter"></div>
         </div>
       </details>
       <details class="filter" id="massen-box">
@@ -308,8 +320,7 @@
     </div>
 
     <div class="karte" id="editor">
-      <h2><span data-t="serie_bearbeiten">Serie bearbeiten</span> <span class="rechts"><span id="ed-n"></span>
-        <button class="klein" id="btn-daten" data-t="daten_zeigen" data-t-title="daten_zeigen_titel">Daten</button></span></h2>
+      <h2><span data-t="serie_bearbeiten">Serie bearbeiten</span> <span class="rechts" id="ed-n"></span></h2>
       <div class="name-zeile">
         <input type="text" id="ed-name" data-t-placeholder="name_platzhalter">
         <button class="klein" id="btn-autoname" data-t="autoname" data-t-title="autoname_titel">Auto</button>
@@ -409,7 +420,8 @@
 </main>
 
 <dialog class="tabelle" id="tabelle-dialog">
-  <h2><span id="tab-titel"></span> <span class="rechts">
+  <h2><select id="tab-quelle" style="text-transform:none;letter-spacing:0;max-width:340px"></select>
+    <span id="tab-titel"></span> <span class="rechts">
     <button class="klein" id="btn-tab-kopieren" data-t="tab_kopieren" data-t-title="tab_kopieren_titel">Für Excel kopieren</button>
     <button class="klein" id="btn-tab-xlsx" data-t="tab_xlsx" data-t-title="tab_xlsx_titel">Excel</button>
     <button class="klein" id="btn-tab-csv" data-t="tab_csv">CSV</button>
@@ -445,6 +457,7 @@ let Z = {
   zielflaeche: "0",            // test-area conversion: target area in mm² as text, "0" = off
   optionen: {punkte: true, gerade: true, band: true, fraktil: true, gleichung: true},
   hover: [],
+  global: {},                  // filter for all series, on top of their own filters
   namensspalten: [],            // columns for "create series" and automatic names, in order
 };
 
@@ -634,7 +647,7 @@ const TEXTS = {
     tudelft_titel: "Methode 1, Hazen, einseitig 95 %, Lognormal per Regression – reproduziert die open-GLASSlab-Rechnung",
     pruefserien: "Prüfserien", plus_serie: "+ Serie",
     teilen: "Serien bilden nach Spalten …",
-    teilen_hinweis: "Spalten in der gewünschten Namensreihenfolge anklicken (z. B. Gruppe, Scheibe, Position, Luft/Zinn). „Serien bilden“ ersetzt die markierte Serie durch eine Serie je vorhandener Wertekombination mit mindestens 3 Messwerten. Die Namen entstehen aus den Werten, verbunden mit „_“, z. B. G1_1_Pos.1_A_W.",
+    teilen_hinweis: "Spalten in der gewünschten Namensreihenfolge anklicken (z. B. Gruppe, Scheibe, Position, Luft/Zinn). „Serien bilden“ ersetzt die markierte Serie durch eine Serie je vorhandener Wertekombination mit mindestens 3 Messwerten. Die Namen entstehen aus den Werten, verbunden mit „_“, z. B. G1_1_Pos.1_A_W. Danach heißt der Knopf „Serien aktualisieren“: eine geänderte Spaltenauswahl wirkt erst, wenn er gedrückt wird.",
     teilen_start: "Serien bilden", teilen_keine_spalte: "Bitte mindestens eine Spalte anklicken.",
     teilen_ergebnis: "{n} Serien gebildet.",
     teilen_uebersprungen: " {k} Kombination(en) mit weniger als 3 Messwerten übersprungen ({m} Messwerte).",
@@ -644,11 +657,15 @@ const TEXTS = {
     mw_spalte: "– Spalte wählen –", mw_wert: "– Wert wählen –", mw_wert_n: "{wert}  ({k} Serien)",
     mw_nur: "Nur diese zeigen", mw_aus: "Ausblenden", mw_weg: "Entfernen", mw_alle: "Alle zeigen",
     mw_keine: "Keine Serie hat diesen Wert im Filter.", mw_weg_frage: "{k} Serie(n) entfernen?",
-    doppelt_name: "Gleicher Name wie eine andere Serie",
-    doppelt_daten: "Gleiche Filter (gleiche Messwerte) wie „{name}“",
-    warnung_doppelt_name: "⚠ Name mehrfach vergeben: {namen}",
-    warnung_doppelt_daten: "⚠ Identische Serien: {paare}",
-    daten_zeigen: "Daten", daten_zeigen_titel: "Messwerte dieser Serie als Tabelle zeigen (zum Kopieren nach Excel)",
+    doppelt_name: "Gleicher Name wie eine andere Serie, aber andere Messwerte",
+    doppelt_daten: "Doppelt: gleiche Filter (gleiche Messwerte) wie „{name}“",
+    warnung_doppelt_name: "⚠ Gleicher Name, aber verschiedene Messwerte: {namen}",
+    warnung_doppelt_daten: "⚠ Doppelte Serien (gleiche Filter, gleiche Messwerte): {paare}",
+    global: "Filter für alle Serien …", global_aktiv: "Filter für alle Serien: {text}",
+    global_hinweis: "Gilt zusätzlich zu den Filtern jeder Serie, für alle Serien zugleich – z. B. nur eine Ringgröße. Die Serien selbst bleiben unverändert; „Auswahl aufheben“ macht es rückgängig.",
+    teilen_update: "Serien aktualisieren",
+    tab_alle_sichtbaren: "Alle sichtbaren Serien (zusammen)",
+    daten_zeigen: "Daten", daten_zeigen_titel: "Messwerte als Tabelle zeigen – markierte Serie oder alle sichtbaren zusammen (zum Kopieren und Speichern für Excel)",
     autoname: "Auto", autoname_titel: "Name automatisch aus den Filtern bilden (Spalten in der Reihenfolge von „Serien bilden nach Spalten“, sonst alle gefilterten Spalten)",
     tab_kopieren: "Für Excel kopieren", tab_kopieren_titel: "Tabelle in die Zwischenablage kopieren – in Excel mit Strg+V einfügen",
     tab_csv: "CSV", tab_csv_alle: "CSV: alle sichtbaren Serien",
@@ -848,7 +865,7 @@ const TEXTS = {
     tudelft_titel: "Method 1, Hazen, one-sided 95 %, log-normal by regression – reproduces the open-GLASSlab calculation",
     pruefserien: "Test series", plus_serie: "+ Series",
     teilen: "Create series by columns …",
-    teilen_hinweis: "Click the columns in the order the names should use (e.g. group, pane, position, air/tin). “Create series” replaces the selected series with one series per existing combination of values with at least 3 measurements. Names are built from the values, joined with “_”, e.g. G1_1_Pos.1_A_W.",
+    teilen_hinweis: "Click the columns in the order the names should use (e.g. group, pane, position, air/tin). “Create series” replaces the selected series with one series per existing combination of values with at least 3 measurements. Names are built from the values, joined with “_”, e.g. G1_1_Pos.1_A_W. Afterwards the button reads “Update series”: a changed column choice only takes effect when it is pressed.",
     teilen_start: "Create series", teilen_keine_spalte: "Please click at least one column.",
     teilen_ergebnis: "{n} series created.",
     teilen_uebersprungen: " {k} combination(s) with fewer than 3 measurements skipped ({m} measurements).",
@@ -858,11 +875,15 @@ const TEXTS = {
     mw_spalte: "– choose column –", mw_wert: "– choose value –", mw_wert_n: "{wert}  ({k} series)",
     mw_nur: "Show only these", mw_aus: "Hide", mw_weg: "Remove", mw_alle: "Show all",
     mw_keine: "No series has this value in its filter.", mw_weg_frage: "Remove {k} series?",
-    doppelt_name: "Same name as another series",
-    doppelt_daten: "Same filters (same measurements) as “{name}”",
-    warnung_doppelt_name: "⚠ Name used more than once: {namen}",
-    warnung_doppelt_daten: "⚠ Identical series: {paare}",
-    daten_zeigen: "Data", daten_zeigen_titel: "Show the measurements of this series as a table (to copy to Excel)",
+    doppelt_name: "Same name as another series, but different measurements",
+    doppelt_daten: "Duplicate: same filters (same measurements) as “{name}”",
+    warnung_doppelt_name: "⚠ Same name, but different measurements: {namen}",
+    warnung_doppelt_daten: "⚠ Duplicate series (same filters, same measurements): {paare}",
+    global: "Filter for all series …", global_aktiv: "Filter for all series: {text}",
+    global_hinweis: "Applies on top of each series' own filters, to all series at once – e.g. only one ring size. The series themselves stay unchanged; “Clear selection” undoes it.",
+    teilen_update: "Update series",
+    tab_alle_sichtbaren: "All visible series (combined)",
+    daten_zeigen: "Data", daten_zeigen_titel: "Show the measurements as a table – the selected series or all visible series combined (to copy or save for Excel)",
     autoname: "Auto", autoname_titel: "Name the series automatically from its filters (columns in the order of “Create series by columns”, otherwise all filtered columns)",
     tab_kopieren: "Copy for Excel", tab_kopieren_titel: "Copy the table to the clipboard – paste into Excel with Ctrl+V",
     tab_csv: "CSV", tab_csv_alle: "CSV: all visible series",
@@ -1055,10 +1076,13 @@ async function start() {
 
   restoreState();
   drawSplitColumns();
+  if (!Z.global) Z.global = {};
   fillOptions();
   if (!Z.serien.length) Z.serien.push(newSeries(t("alle_messwerte"), {}));
   if (!Z.hover.length) Z.hover = hoverDefaults();
   Z.serien.forEach(cleanSeries);
+  Z.global = cleanFilter(Z.global);
+  drawGlobalFilter();
 
   bindControls();
   fillViewList(DATA.ansichten);
@@ -1121,19 +1145,33 @@ function rowsMatching(filter, exceptColumn) {
   return DATA.zeilen.filter(z => conds.every(([i, set]) => set.has(z[i])));
 }
 
+// Filter for all series (Z.global) on top of a series' own filter: columns of
+// both are intersected; an empty intersection matches nothing.
+const NOTHING = "\u0000";
+function withGlobal(filter) {
+  const out = JSON.parse(JSON.stringify(filter || {}));
+  for (const [c, values] of Object.entries(Z.global || {})) {
+    if (!values.length) continue;
+    const both = out[c] ? out[c].filter(v => values.includes(v)) : [...values];
+    out[c] = both.length ? both : [NOTHING];
+  }
+  return out;
+}
+
 // Combined series: union of several filters; each measurement counts once
 const partFilters = s => s.vereinigung || [s.filter];
 function seriesRows(s) {
-  if (!s.vereinigung) return rowsMatching(s.filter);
+  if (!s.vereinigung) return rowsMatching(withGlobal(s.filter));
   const seen = new Set();
-  for (const f of s.vereinigung) for (const z of rowsMatching(f)) seen.add(z);
+  for (const f of s.vereinigung) for (const z of rowsMatching(withGlobal(f))) seen.add(z);
   return [...seen];
 }
 function cleanSeries(s) {
   s.filter = cleanFilter(s.filter);
   if (s.vereinigung) s.vereinigung = s.vereinigung.map(cleanFilter);
 }
-const seriesForServer = s => ({name: s.name, farbe: s.farbe, filter: s.filter, vereinigung: s.vereinigung});
+const seriesForServer = s => ({name: s.name, farbe: s.farbe, filter: withGlobal(s.filter),
+  vereinigung: s.vereinigung && s.vereinigung.map(withGlobal)});
 
 // ---------------------------------------------------------------------------
 // Controls
@@ -1182,9 +1220,10 @@ function bindControls() {
     s.autoname = true; drawSeriesList(); drawEditor(); recalculate(0);
   });
   $("btn-daten").addEventListener("click", () => showTable(Z.aktiv));
+  $("tab-quelle").addEventListener("change", () => loadTable($("tab-quelle").value));
   $("btn-teilen").addEventListener("click", createSeriesByColumns);
   $("btn-teilen-leeren").addEventListener("click", () => {
-    Z.namensspalten = []; drawSplitColumns(); drawSeriesList(); recalculate(0);
+    Z.teilen_auswahl = []; drawSplitColumns(); saveState();
   });
   $("mw-spalte").addEventListener("change", fillValueSelect);
   $("btn-mw-nur").addEventListener("click", () => bulkAction("nur"));
@@ -1277,22 +1316,25 @@ const filterKey = s => JSON.stringify(partFilters(s).map(f => Object.keys(f).sor
 function drawSeriesList() {
   refreshAutoNames();
   const list = $("serienliste"); list.innerHTML = "";
-  const nameCount = {}, firstWithKey = {};
-  for (const s of Z.serien) nameCount[s.name.trim()] = (nameCount[s.name.trim()] || 0) + 1;
-  const dupNames = new Set(), dupPairs = [];
-  Z.serien.forEach(s => {
-    if (nameCount[s.name.trim()] > 1) dupNames.add(s.name.trim());
-    const k = filterKey(s);
-    if (k in firstWithKey) dupPairs.push(`${firstWithKey[k].name} = ${s.name}`); else firstWithKey[k] = s;
-  });
+  // Duplicates: same filters = same measurements (same name follows from it
+  // with automatic names). Same name with different filters is reported apart.
+  const byKey = new Map(), keysByName = new Map();
+  for (const s of Z.serien) {
+    const k = filterKey(s), name = s.name.trim();
+    byKey.set(k, [...(byKey.get(k) || []), s]);
+    keysByName.set(name, new Set([...(keysByName.get(name) || []), k]));
+  }
+  const dupGroups = [...byKey.values()].filter(g => g.length > 1);
+  const nameClash = [...keysByName.entries()].filter(([, keys]) => keys.size > 1).map(([n]) => n);
   $("serien-warnung").textContent = [
-    dupNames.size ? t("warnung_doppelt_name", {namen: [...dupNames].map(n => `„${n}“`).join(", ")}) : "",
-    dupPairs.length ? t("warnung_doppelt_daten", {paare: dupPairs.join(", ")}) : ""].filter(Boolean).join("\n");
+    dupGroups.length ? t("warnung_doppelt_daten", {paare: dupGroups.map(g => g.map(s => `„${s.name}“`).join(" = ")).join(", ")}) : "",
+    nameClash.length ? t("warnung_doppelt_name", {namen: nameClash.map(n => `„${n}“`).join(", ")}) : ""].filter(Boolean).join("\n");
   Z.serien.forEach((s, i) => {
     const n = seriesRows(s).length;
-    const twin = firstWithKey[filterKey(s)];
-    const warn = [nameCount[s.name.trim()] > 1 ? t("doppelt_name") : "",
-      twin !== s ? t("doppelt_daten", {name: twin.name}) : ""].filter(Boolean).join("\n");
+    const group = byKey.get(filterKey(s));
+    const other = group.find(x => x !== s);
+    const warn = other ? t("doppelt_daten", {name: other.name})
+      : keysByName.get(s.name.trim()).size > 1 ? t("doppelt_name") : "";
     list.append(el("div", {class: `serie${i === Z.aktiv ? " aktiv" : ""}${s.sichtbar ? "" : " versteckt"}`,
         onclick: () => { Z.aktiv = i; drawSeriesList(); drawEditor(); saveState(); }},
       el("span", {class: "punkt", style: `background:${displayColor(s.farbe)}`}),
@@ -1316,6 +1358,7 @@ function drawSeriesList() {
   });
   if (!Z.serien.length) list.append(el("div", {class: "hinweis"}, t("keine_serie")));
   combineFillSelects(); validFillSelects(); gcFillSelects(); pgFillSelects(); fillValueSelect();
+  $("btn-teilen").textContent = t(splitSeriesExist() ? "teilen_update" : "teilen_start");
 }
 
 function drawEditor() {
@@ -1342,7 +1385,7 @@ function drawEditor() {
   }
   for (const sp of DATA.spalten) {
     const selected = new Set(s.filter[sp.name] || []);
-    const base = rowsMatching(s.filter, sp.name);
+    const base = rowsMatching(withGlobal(s.filter), sp.name);
     const idx = DATA.spalten.indexOf(sp);
     const counts = {};
     for (const z of base) counts[z[idx]] = (counts[z[idx]] || 0) + 1;
@@ -1383,37 +1426,46 @@ function drawHoverList() {
     el("span", {class: "txt"}, sp.name)));
 }
 
-// Columns for "create series" / automatic names: clicking adds a column at the
-// end of the order, clicking again removes it
+// Columns for "create series": clicking adds a column at the end of the order,
+// clicking again removes it. Only a choice (Z.teilen_auswahl) until the button
+// is pressed; then it becomes the naming order (Z.namensspalten).
+const splitChoice = () => Z.teilen_auswahl || Z.namensspalten;
+const splitSeriesExist = () => Z.serien.some(s => s.teilung);
 function drawSplitColumns() {
   const box = $("teilen-spalten"); box.innerHTML = "";
-  Z.namensspalten = Z.namensspalten.filter(c => DATA.spalten.some(sp => sp.name === c));
+  const known = c => DATA.spalten.some(sp => sp.name === c);
+  Z.namensspalten = Z.namensspalten.filter(known);
+  if (Z.teilen_auswahl) Z.teilen_auswahl = Z.teilen_auswahl.filter(known);
+  const choice = splitChoice();
   for (const sp of DATA.spalten) {
-    const pos = Z.namensspalten.indexOf(sp.name);
+    const pos = choice.indexOf(sp.name);
     box.append(el("label", {class: "wert"},
       el("input", {type: "checkbox", checked: pos >= 0, onchange: ev => {
-        Z.namensspalten = ev.target.checked ? [...Z.namensspalten, sp.name]
-          : Z.namensspalten.filter(c => c !== sp.name);
-        drawSplitColumns(); drawSeriesList(); drawEditor(); recalculate(); }}),
+        const now = splitChoice();
+        Z.teilen_auswahl = ev.target.checked ? [...now, sp.name] : now.filter(c => c !== sp.name);
+        drawSplitColumns(); saveState(); }}),
       el("span", {class: "txt"}, sp.name),
       pos >= 0 ? el("span", {class: "reihe"}, String(pos + 1)) : el("span", {class: "anz"}, String(sp.werte.length))));
   }
+  $("btn-teilen").textContent = t(splitSeriesExist() ? "teilen_update" : "teilen_start");
 }
 
-// Replace the selected series by one series per combination of values of the
-// naming columns that occurs in it (at least 3 measurements each)
+// One series per combination of values of the chosen columns that occurs (at
+// least 3 measurements each). First time: replaces the selected series.
+// "Update series": replaces the series created before, from the same base,
+// keeping colour and visibility of series that stay the same.
 function createSeriesByColumns() {
-  const s = Z.serien[Z.aktiv];
-  const cols = Z.namensspalten;
+  const cols = [...splitChoice()];
   if (!cols.length) return showInfo(t("teilen_keine_spalte"), true);
-  if (s && s.vereinigung) return showInfo(t("kombi_nicht_teilen"), true);
-  const base = s ? s.filter : {};
+  const update = splitSeriesExist();
+  const s = Z.serien[Z.aktiv];
+  if (!update && s && s.vereinigung) return showInfo(t("kombi_nicht_teilen"), true);
+  const base = update ? (Z.teilen_basis || {}) : (s ? s.filter : {});
   const idx = cols.map(c => DATA.spalten.findIndex(sp => sp.name === c));
-  // rows of the series, with the naming columns free (but restricted to
-  // values the series already allows)
-  const rows = rowsMatching(base).filter(z => idx.every(j => z[j] != null));
+  // rows of the base (with the filter for all series), naming columns free
+  // but restricted to the values the base allows
   const groups = new Map();
-  for (const z of rows) {
+  for (const z of rowsMatching(withGlobal(base))) {
     const key = JSON.stringify(idx.map(j => z[j]));
     groups.set(key, (groups.get(key) || 0) + 1);
   }
@@ -1422,20 +1474,68 @@ function createSeriesByColumns() {
     .sort((a, b) => { for (let c = 0; c < idx.length; c++) {
       const d = order[c].get(a.werte[c]) - order[c].get(b.werte[c]); if (d) return d; } return 0; });
   const kept = combos.filter(c => c.n >= 3), skipped = combos.filter(c => c.n < 3);
-  if (!kept.length) return showInfo(t("teilen_ergebnis", {n: 0}) +
-    t("teilen_uebersprungen", {k: skipped.length, m: skipped.reduce((a, c) => a + c.n, 0)}), true);
+  const skippedText = skipped.length ? t("teilen_uebersprungen", {k: skipped.length, m: skipped.reduce((a, c) => a + c.n, 0)}) : "";
+  if (!kept.length) return showInfo(t("teilen_ergebnis", {n: 0}) + skippedText, true);
   if (kept.length > 60 && !confirm(t("teilen_viele", {n: kept.length}))) return;
+  const old = new Map(Z.serien.filter(x => x.teilung).map(x => [filterKey(x), x]));
   const fresh = kept.map((c, j) => {
     const filter = JSON.parse(JSON.stringify(base));
     cols.forEach((col, ci) => { filter[col] = [c.werte[ci]]; });
-    return {name: "", farbe: DATA.palette[j % DATA.palette.length], sichtbar: true, filter, autoname: true};
+    const neu = {name: "", farbe: DATA.palette[j % DATA.palette.length], sichtbar: true, filter, autoname: true, teilung: true};
+    const before = old.get(filterKey(neu));
+    if (before) Object.assign(neu, {farbe: before.farbe, sichtbar: before.sichtbar});
+    return neu;
   });
-  if (s) Z.serien.splice(Z.aktiv, 1, ...fresh); else Z.serien.push(...fresh);
-  Z.aktiv = Math.min(Z.aktiv, Z.serien.length - 1);
+  if (update) {
+    const at = Z.serien.findIndex(x => x.teilung);
+    Z.serien = Z.serien.filter(x => !x.teilung);
+    Z.serien.splice(Math.min(at, Z.serien.length), 0, ...fresh);
+  } else if (s) Z.serien.splice(Z.aktiv, 1, ...fresh);
+  else Z.serien.push(...fresh);
+  Z.namensspalten = cols; Z.teilen_auswahl = null; Z.teilen_basis = JSON.parse(JSON.stringify(base));
+  Z.aktiv = Math.max(0, Math.min(Z.aktiv, Z.serien.length - 1));
   $("teilen-box").open = false;
-  drawAll();
-  showInfo(t("teilen_ergebnis", {n: kept.length}) + (skipped.length
-    ? t("teilen_uebersprungen", {k: skipped.length, m: skipped.reduce((a, c) => a + c.n, 0)}) : ""));
+  drawSplitColumns(); drawAll();
+  showInfo(t("teilen_ergebnis", {n: kept.length}) + skippedText);
+}
+
+// Filter for all series: like the filters of one series, on top of every series
+function drawGlobalFilter() {
+  const box = $("global-filter");
+  const openCols = new Set([...box.querySelectorAll("details[open]")].map(d => d.dataset.spalte));
+  box.innerHTML = "";
+  const G = Z.global || (Z.global = {});
+  const parts = [];
+  for (const sp of DATA.spalten) {
+    const selected = new Set(G[sp.name] || []);
+    const idx = DATA.spalten.indexOf(sp);
+    const counts = {};
+    for (const z of rowsMatching(G, sp.name)) counts[z[idx]] = (counts[z[idx]] || 0) + 1;
+    const list = el("div", {class: "f-liste"});
+    for (const w of sp.werte) list.append(el("label", {class: `wert${counts[w.schluessel] ? "" : " aus"}`},
+      el("input", {type: "checkbox", checked: selected.has(w.schluessel), onchange: ev => {
+        const fresh = new Set(G[sp.name] || []);
+        ev.target.checked ? fresh.add(w.schluessel) : fresh.delete(w.schluessel);
+        if (fresh.size) G[sp.name] = [...fresh]; else delete G[sp.name];
+        globalChanged(); }}),
+      el("span", {class: "txt", title: w.anzeige}, w.anzeige),
+      el("span", {class: "anz"}, String(counts[w.schluessel] || 0))));
+    const choiceText = sp.werte.filter(w => selected.has(w.schluessel)).map(w => w.anzeige).join(", ");
+    if (selected.size) parts.push(`${sp.name} = ${choiceText}`);
+    box.append(el("details", {class: `filter${selected.size ? " gesetzt" : ""}`, "data-spalte": sp.name, open: openCols.has(sp.name)},
+      el("summary", {}, sp.name, el("span", {class: "wahl", title: choiceText}, choiceText)),
+      selected.size ? el("span", {class: "f-leeren", onclick: () => { delete G[sp.name]; globalChanged(); }},
+        t("auswahl_aufheben")) : null,
+      list));
+  }
+  const text = parts.join(" · ");
+  $("global-wahl").textContent = text;
+  $("global-wahl").title = text;
+  $("global-box").classList.toggle("gesetzt", parts.length > 0);
+  $("global-aktiv").textContent = parts.length ? t("global_aktiv", {text}) : "";
+}
+function globalChanged() {
+  drawGlobalFilter(); drawSeriesList(); drawEditor(); recalculate();
 }
 
 // Bulk actions on the series list: series whose filter contains a value
@@ -1482,6 +1582,7 @@ let uploadMode = "ersetzen";
 
 function fillColumnSelect() {
   drawSplitColumns();
+  drawGlobalFilter();
   fillValueSelect();
 }
 
@@ -1567,6 +1668,7 @@ function applyData(fresh, message) {
     cleanSeries(s);
     if (JSON.stringify(partFilters(s)) !== before) affected.push(s.name);
   }
+  Z.global = cleanFilter(Z.global);
   Z.hover = Z.hover.filter(h => DATA.spalten.some(sp => sp.name === h));
   if (!Z.hover.length) Z.hover = hoverDefaults();
   $("quelle").textContent = sourceText();
@@ -2452,14 +2554,29 @@ async function fetchRows(seriesList) {
   if (d.fehler) throw new Error(d.fehler);
   return d;
 }
-async function showTable(i) {
-  const s = Z.serien[i]; if (!s) return;
+// value of the source select: a series index or "alle" (all visible series combined)
+async function showTable(which) {
+  const sel = $("tab-quelle");
+  sel.innerHTML = "";
+  sel.append(el("option", {value: "alle"}, t("tab_alle_sichtbaren")));
+  Z.serien.forEach((s, i) => sel.append(el("option", {value: String(i)}, s.name || t("ohne_namen"))));
+  sel.value = Z.serien[which] ? String(which) : "alle";
+  if (!(await loadTable(sel.value))) return;
+  if (!$("tabelle-dialog").open) $("tabelle-dialog").showModal();
+}
+async function loadTable(which) {
   try {
-    const d = await fetchRows([s]);
-    TABLE = {spalten: d.spalten, name: d.serien[0].name, zeilen: d.serien[0].zeilen, sort: null};
-  } catch (f) { return showInfo(t("fehlgeschlagen", {text: f.message}), true); }
+    if (which === "alle") {
+      const d = await fetchRows(Z.serien.filter(s => s.sichtbar));
+      TABLE = {spalten: [t("tab_serie"), ...d.spalten], name: t("tab_alle_sichtbaren"), sort: null,
+        zeilen: d.serien.flatMap(s => s.zeilen.map(z => [s.name, ...z]))};
+    } else {
+      const d = await fetchRows([Z.serien[+which]]);
+      TABLE = {spalten: d.spalten, name: d.serien[0].name, zeilen: d.serien[0].zeilen, sort: null};
+    }
+  } catch (f) { showInfo(t("fehlgeschlagen", {text: f.message}), true); return false; }
   drawTable();
-  $("tabelle-dialog").showModal();
+  return true;
 }
 // numbers with the decimal separator of the language; empty cells empty
 const cellOut = v => typeof v === "number" ? (LANG === "de" ? String(v).replace(".", ",") : String(v))
@@ -2479,7 +2596,7 @@ function tableRows() {
 }
 function drawTable() {
   const T = TABLE;
-  $("tab-titel").textContent = `${T.name}  ·  n = ${T.zeilen.length}`;
+  $("tab-titel").textContent = `n = ${T.zeilen.length}`;
   $("tab-info").textContent = t("tab_info", {n: T.zeilen.length});
   const head = T.spalten.map((c, i) => `<th data-i="${i}">${html(c)}${T.sort && T.sort[0] === i ? (T.sort[1] ? " ▲" : " ▼") : ""}</th>`).join("");
   const body = tableRows().map(z => "<tr>" + z.map(v => typeof v === "number"
@@ -2660,7 +2777,7 @@ function applyView(view) {
   // Set fields that older views do not know to "off" instead of keeping
   // the state of the previous view
   Z.zielflaeche = "0"; Z.kombi = null; COMBINE = null;
-  Z.valid = null; VALID = null; Z.gv = null; GC = null; Z.pg = null; PG = null; Z.namensspalten = [];
+  Z.valid = null; VALID = null; Z.gv = null; GC = null; Z.pg = null; PG = null; Z.namensspalten = []; Z.global = {}; Z.teilen_auswahl = null; Z.teilen_basis = null;
   Object.assign(Z, JSON.parse(JSON.stringify(view)));
   const affected = [];
   for (const s of Z.serien) {
@@ -2668,12 +2785,13 @@ function applyView(view) {
     cleanSeries(s);
     if (JSON.stringify(partFilters(s)) !== before) affected.push(s.name);
   }
+  Z.global = cleanFilter(Z.global);
   Z.aktiv = Math.max(0, Math.min(Z.aktiv || 0, Z.serien.length - 1));
   if (!Z.lognormal_methode) Z.lognormal_methode = "moment";   // older views
   for (const [id, field] of SELECT_FIELDS) $(id).value = Z[field];
   fillAreaSelect();                          // the target area must occur in the current data
   document.querySelectorAll("[data-opt]").forEach(cb => { cb.checked = Z.optionen[cb.dataset.opt] !== false; });
-  drawHoverList(); drawSplitColumns();
+  drawHoverList(); drawSplitColumns(); drawGlobalFilter();
   drawAll();
   return affected;
 }

@@ -41,7 +41,7 @@ compare and pool series, and validate the fits out of sample.
 
 | Area | What it does |
 |---|---|
-| **Test series** | Build series from filters (AND between columns, OR within a column). Create one series per combination of several columns at once (e.g. one per pane), named automatically from the values (e.g. `G1_1_Pos.1_A_W`). Show, hide or remove all series with a given value. Warning for series with the same name or the same filters. |
+| **Test series** | Build series from filters (AND between columns, OR within a column). Create one series per combination of several columns at once (e.g. one per pane), named automatically from the values (e.g. `G1_1_Pos.1_A_W`). A filter for all series at once (e.g. only one ring size) on top of their own filters. Show, hide or remove all series with a given value. Warning for duplicate series. |
 | **Fits** | Weibull by least squares (method 1), weighted least squares (method 2, Faucher & Tyson) or GLUE / EN 12603 (method 3). Log-normal by method of moments or by regression. Plotting positions Hazen, mean rank or median rank. One- or two-sided 95 % confidence. |
 | **Preset** | The button *TU Delft Methode 1* sets method 1, Hazen, one-sided and log-normal by regression, as in TU Delft's open-GLASSlab. |
 | **Plots** | Weibull and/or log-normal probability paper, overlaid or one per series. Fitted line with its equation, confidence band, 5 % fractile with its 95 % confidence bound. |
