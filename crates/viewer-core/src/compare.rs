@@ -291,3 +291,89 @@ pub fn points_vs_line(data: &Data, req: &Value) -> Value {
     out.insert("hinweise".into(), json!(hints));
     Value::Object(out)
 }
+
+/// Pairwise matrix over many series with one of the pair checks:
+/// "pearson" (r of the Q-Q pairs on ln σ ≥ threshold, symmetric),
+/// "ad" (two-sample Anderson–Darling, same distribution not rejected at 5 %,
+/// symmetric) or "ks" (row = line, column = points: KS test of the column's
+/// measurements against the distribution fitted to the row, not symmetric).
+/// Pairs whose test areas differ (without conversion) are not checked, as
+/// when combining two series. Series with fewer than 3 measurements are left out.
+pub fn pair_matrix(data: &Data, req: &Value) -> Value {
+    let (settings, target) = read_settings(req);
+    let method = req.get("verfahren").and_then(|v| v.as_str()).unwrap_or("pearson").to_string();
+    let threshold = req.get("schwelle").and_then(|v| v.as_f64()).unwrap_or(0.95);
+    let lognormal = req.get("verteilung").and_then(|v| v.as_str()) == Some("lognormal");
+    let list = req.get("serien").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut used = Vec::new();
+    let mut too_small = Vec::new();
+    let mut hints = Vec::new();
+    for s in &list {
+        let name = series_name(s);
+        let w = series_values(data, s, target, settings.method, settings.positions);
+        if w.rows.len() < 3 {
+            too_small.push(json!({"name": name, "n": w.rows.len()}));
+            continue;
+        }
+        hints.extend(with_name(&w.hints, &name));
+        let set = areas(data, &w, target);
+        used.push((name, s.get("index").cloned().unwrap_or(Value::Null), w, set));
+    }
+    // fits only for the KS check
+    let fits: Vec<Option<glass_stats::Fit>> = used.iter().map(|(_, _, w, _)| {
+        if method != "ks" { return None; }
+        evaluate(&w.sigma, &settings).ok().map(|(wb, ln)| if lognormal { ln } else { wb })
+    }).collect();
+    let k = used.len();
+    let mut cells = vec![vec![Value::Null; k]; k];
+    for i in 0..k {
+        for j in 0..k {
+            if i == j || (method != "ks" && j < i) {
+                continue;
+            }
+            let mut set = used[i].3.clone();
+            set.extend(used[j].3.iter().cloned());
+            if set.iter().filter(|a| a.is_some()).count() > 1 {
+                cells[i][j] = json!({"flaeche": false});
+                continue;
+            }
+            let (a, b) = (&used[i].2.sigma, &used[j].2.sigma);
+            let cell = match method.as_str() {
+                "ad" => {
+                    let (a2, p) = anderson_ksamp(&[a.clone(), b.clone()]);
+                    json!({"wert": p, "A2": a2, "ok": p >= 0.05})
+                }
+                "ks" => match &fits[i] {
+                    Some(f) => {
+                        let cdf: Vec<f64> = b.iter().map(|&s| f.cdf(s)).collect();
+                        let d = glass_stats::ks::ks_statistic(&cdf);
+                        let p = glass_stats::ks::ks_pvalue(d, b.len());
+                        json!({"wert": p, "D": d, "ok": p >= 0.05})
+                    }
+                    None => Value::Null,
+                },
+                _ => {
+                    let (qa, qb) = qq_pairs(a, b);
+                    let la: Vec<f64> = qa.iter().map(|v| v.ln()).collect();
+                    let lb: Vec<f64> = qb.iter().map(|v| v.ln()).collect();
+                    let (r, p) = pearson(&la, &lb);
+                    json!({"wert": r, "p": p, "ok": r >= threshold})
+                }
+            };
+            cells[i][j] = cell;
+        }
+    }
+    // symmetric checks: mirror the upper triangle
+    if method != "ks" {
+        for i in 0..k {
+            for j in 0..i {
+                cells[i][j] = cells[j][i].clone();
+            }
+        }
+    }
+    json!({
+        "verfahren": method, "schwelle": threshold,
+        "serien": used.iter().map(|(n, ix, w, _)| json!({"name": n, "index": ix, "n": w.rows.len()})).collect::<Vec<_>>(),
+        "zellen": cells, "zu_klein": too_small, "hinweise": hints,
+    })
+}

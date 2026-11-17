@@ -99,6 +99,7 @@ impl Viewer {
             "/api/gruppenvergleich" => crate::compare::group_comparison(&self.data, req),
             "/api/validieren" => crate::validation::validate(&self.data, req),
             "/api/punkte_gerade" => crate::compare::points_vs_line(&self.data, req),
+            "/api/paarmatrix" => crate::compare::pair_matrix(&self.data, req),
             "/api/zeilen" => crate::table::rows_table(&self.data, req),
             _ => json!({"fehler": format!("nicht gefunden: {path}")}),
         }

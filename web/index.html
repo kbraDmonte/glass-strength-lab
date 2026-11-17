@@ -411,6 +411,17 @@
       </div>
       <div id="pg-ergebnis"></div>
     </div>
+    <div class="karte" style="margin-top:14px">
+      <h2 data-t="pm_titel">Paarmatrix (alle sichtbaren Serien)</h2>
+      <p class="hinweis" data-t="pm_hinweis"></p>
+      <div class="kombi-auswahl">
+        <div class="feld"><label data-t="pm_verfahren">Verfahren</label><select id="pm-verfahren"></select></div>
+        <div class="feld" id="pm-schwelle-feld"><label data-t="kombi_schwelle">Korrelation ab</label><select id="pm-schwelle"></select></div>
+        <div class="feld" id="pm-vert-feld"><label data-t="verteilung">Verteilung</label><select id="pm-verteilung"></select></div>
+        <div class="feld"><label>&nbsp;</label><button class="primaer" id="btn-pm" data-t="pm_start">Berechnen</button></div>
+      </div>
+      <div id="pm-ergebnis"></div>
+    </div>
   </section>
 </main>
 
@@ -494,7 +505,7 @@ function redrawTheme() {
   $("sw-design").querySelectorAll("button").forEach(b => b.classList.toggle("aktiv", b.dataset.w === THEME));
   if (!DATA) return;
   drawSeriesList(); drawEditor(); drawDiagrams(); drawTables(); combineShow();
-  validShow(); gcShow(); pgShow();
+  validShow(); gcShow(); pgShow(); pmShow();
 }
 // ---------------------------------------------------------------------------
 // Language (DE / EN)
@@ -689,6 +700,22 @@ const TEXTS = {
     pg_ks_ok: "verträglich (nicht abgelehnt, α = 5 %)", pg_ks_nein: "weicht ab (abgelehnt, α = 5 %)",
     pg_plot_titel: "Punkte: {b}  ·  Gerade: {a}",
     pg_band: "Konfidenzband {name}",
+    pm_titel: "Paarmatrix (alle sichtbaren Serien)",
+    pm_hinweis: "Prüft jedes Paar sichtbarer Serien mit einem der Verfahren aus „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“ – mit den Einstellungen oben. Grün ✓ = Kriterium erfüllt, rot ✗ = nicht erfüllt, grau = verschiedene Prüfflächen ohne Umrechnung. Hinweis: Pearson r allein erkennt keinen Niveauunterschied; dafür Anderson-Darling oder KS.",
+    pm_verfahren: "Verfahren", pm_start: "Berechnen",
+    pm_pearson: "Pearson-Korrelation (Q-Q, ln σ)", pm_ad: "Zwei-Stichproben-Anderson-Darling", pm_ks: "Punkte gegen Ausgleichsgerade (KS-Test)",
+    pm_paar_ks: "Gerade {a} · Punkte {b}",
+    pm_flaeche: "verschiedene Prüfflächen – nicht geprüft (oben „Prüffläche“ wählen)",
+    pm_flaeche_n: "{n} Paar(e) mit verschiedenen Prüfflächen nicht geprüft (≠ A).",
+    pm_zu_wenig: "Mindestens zwei sichtbare Serien mit je 3 Messwerten nötig.",
+    pm_ja_pearson: "Korrelation", pm_nein_pearson: "keine ausreichende Korrelation",
+    pm_ja_ad: "gleiche Verteilung nicht abgelehnt", pm_nein_ad: "gleiche Verteilung abgelehnt",
+    pm_ja_ks: "verträglich", pm_nein_ks: "weicht ab",
+    pm_summe_pearson: "{ok} von {n} Paaren mit r ≥ {s}.",
+    pm_summe_ad: "{ok} von {n} Paaren: gleiche Verteilung nicht abgelehnt (α = 5 %).",
+    pm_summe_ks: "{ok} von {n} Kombinationen verträglich (KS-Test, α = 5 %).",
+    pm_klick: "Klick auf ein Feld wählt das Paar in „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“ aus.",
+    pm_klick_ks: "Zeile = Gerade, Spalte = Punkte (nicht symmetrisch). Klick auf ein Feld wählt das Paar in „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“ aus.",
     gv_klick: "Klick auf ein Feld wählt die beiden Gruppen unten in „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“ aus und prüft sie. Beim Aufteilen einer Serie werden die beiden Serien dafür angelegt.",
     hinweis_filter: "Klick auf eine Serie öffnet ihre Filter unten. Die Filter wirken wie im Konfigurator: UND zwischen Spalten, ODER innerhalb einer Spalte.",
     serie_bearbeiten: "Serie bearbeiten", name_platzhalter: "Name der Serie",
@@ -912,6 +939,22 @@ const TEXTS = {
     pg_ks_ok: "consistent (not rejected, α = 5 %)", pg_ks_nein: "differs (rejected, α = 5 %)",
     pg_plot_titel: "Points: {b}  ·  Line: {a}",
     pg_band: "confidence band {name}",
+    pm_titel: "Pairwise matrix (all visible series)",
+    pm_hinweis: "Checks every pair of visible series with one of the methods from “Combine series” and “Points against a fitted line” – with the settings above. Green ✓ = criterion met, red ✗ = not met, grey = different test areas without conversion. Note: Pearson r alone cannot detect a level difference; use Anderson-Darling or KS for that.",
+    pm_verfahren: "Method", pm_start: "Calculate",
+    pm_pearson: "Pearson correlation (Q-Q, ln σ)", pm_ad: "Two-sample Anderson-Darling", pm_ks: "Points against fitted line (KS test)",
+    pm_paar_ks: "line {a} · points {b}",
+    pm_flaeche: "different test areas – not checked (choose a “Test area” above)",
+    pm_flaeche_n: "{n} pair(s) with different test areas not checked (≠ A).",
+    pm_zu_wenig: "At least two visible series with 3 measurements each are needed.",
+    pm_ja_pearson: "correlated", pm_nein_pearson: "no sufficient correlation",
+    pm_ja_ad: "same distribution not rejected", pm_nein_ad: "same distribution rejected",
+    pm_ja_ks: "consistent", pm_nein_ks: "differs",
+    pm_summe_pearson: "{ok} of {n} pairs with r ≥ {s}.",
+    pm_summe_ad: "{ok} of {n} pairs: same distribution not rejected (α = 5 %).",
+    pm_summe_ks: "{ok} of {n} combinations consistent (KS test, α = 5 %).",
+    pm_klick: "Click a cell to select the pair in “Combine series” and “Points against a fitted line”.",
+    pm_klick_ks: "Row = line, column = points (not symmetric). Click a cell to select the pair in “Combine series” and “Points against a fitted line”.",
     gv_klick: "Click a cell to select the two groups below in “Combine series” and “Points against a fitted line” and check them. When splitting one series, the two series are created for this.",
     hinweis_filter: "Click a series to edit its filters below. Filters combine like in the Konfigurator: AND across columns, OR within a column.",
     serie_bearbeiten: "Edit series", name_platzhalter: "Series name",
@@ -1055,7 +1098,7 @@ function setLanguage(lang) {
   fillViewList(DATA.ansichten);
   if (RESULT) { $("status").textContent = settingsText(); showMessage(hintsText(RESULT.hinweise)); }
   drawSeriesList(); drawEditor(); drawDiagrams(); drawTables(); combineShow();
-  validShow(); gcShow(); pgShow(); saveState();
+  validShow(); gcShow(); pgShow(); pmFillSelects(); pmShow(); saveState();
 }
 
 const el = (tag, attrs = {}, ...children) => {
@@ -1245,6 +1288,12 @@ function bindControls() {
   });
   $("hover-standard").addEventListener("click", () => { Z.hover = hoverDefaults(); drawHoverList(); recalculate(0); });
   $("btn-pg").addEventListener("click", () => pgCheck());
+  $("btn-pm").addEventListener("click", () => pmCompute());
+  for (const id of ["pm-verfahren", "pm-schwelle", "pm-verteilung"]) $(id).addEventListener("change", () => {
+    pmShowFields(); pmRemember();
+    if (PM) pmCompute();
+  });
+  pmFillSelects();
   for (const id of ["pg-a", "pg-b"]) $(id).addEventListener("change", () => {
     Z.pg = Object.assign(Z.pg || {}, {a: $("pg-a").value, b: $("pg-b").value});
     saveState();
@@ -2239,6 +2288,11 @@ function gcSelectPair(ga, gb) {
   };
   const a = seriesFor(ga), b = seriesFor(gb);
   if (!a || !b) return showInfo(t("kombi_nicht_teilen"), true);
+  selectPair(a, b, created);
+}
+// Two series as series 1 / 2 in "Combine series" and as line / points in
+// "Points against a fitted line"; both are checked and shown
+function selectPair(a, b, created = false) {
   const [ia, ib] = [String(Z.serien.indexOf(a)), String(Z.serien.indexOf(b))];
   Z.kombi = {a: ia, b: ib, r: (Z.kombi && Z.kombi.r) || "0.95", aktiv: true};
   Z.pg = {a: ia, b: ib, aktiv: true};
@@ -2328,6 +2382,7 @@ function recalculate(delay = 250) {
       if (COMBINE || (Z.kombi && Z.kombi.aktiv)) combineCheck();
       if (Z.gv && Z.gv.aktiv) gcCompare();
       if (Z.pg && Z.pg.aktiv) pgCheck();
+      if (Z.pm && Z.pm.aktiv) pmCompute();
       // validation takes a few seconds: only repeat it if it is already shown
       if (Z.valid && Z.valid.aktiv) validate();
     } catch (err) {
@@ -2790,6 +2845,122 @@ function pgShow() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Pairwise matrix over all visible series (Pearson Q-Q, two-sample AD, or
+// points against the fitted line with KS)
+// ---------------------------------------------------------------------------
+let PM = null;                // last result {antwort} or {fehler}
+let pmRunNr = 0;
+const PM_METHODS = ["pearson", "ad", "ks"];
+
+function pmFillSelects() {
+  const p = Z.pm || {};
+  const fill = (id, options, value) => {
+    const sel = $(id); sel.innerHTML = "";
+    for (const [v, text] of options) sel.append(el("option", {value: v}, text));
+    sel.value = options.some(([v]) => v === value) ? value : options[0][0];
+  };
+  fill("pm-verfahren", PM_METHODS.map(m => [m, t("pm_" + m)]), p.verfahren);
+  fill("pm-schwelle", ["0.9", "0.95", "0.99"].map(w => [w, `r ≥ ${num(+w, 2)}`]), p.schwelle || "0.95");
+  fill("pm-verteilung", [["weibull", "Weibull"], ["lognormal", t("lognormal")]], p.verteilung);
+  pmShowFields();
+}
+function pmShowFields() {
+  const m = $("pm-verfahren").value;
+  $("pm-schwelle-feld").style.display = m === "pearson" ? "" : "none";
+  $("pm-vert-feld").style.display = m === "ks" ? "" : "none";
+}
+function pmRemember(active) {
+  Z.pm = {verfahren: $("pm-verfahren").value, schwelle: $("pm-schwelle").value,
+    verteilung: $("pm-verteilung").value, aktiv: active ?? !!(Z.pm && Z.pm.aktiv)};
+  saveState();
+}
+async function pmCompute() {
+  pmRemember(true);
+  const source = Z.serien.map((s, i) => ({s, i})).filter(x => x.s.sichtbar);
+  const body = Object.assign({verfahren: $("pm-verfahren").value, schwelle: parseFloat($("pm-schwelle").value),
+    verteilung: $("pm-verteilung").value,
+    serien: source.map(x => Object.assign(seriesForServer(x.s), {index: x.i}))}, settingsForServer());
+  const runId = ++pmRunNr;
+  try {
+    const r = await fetch("/api/paarmatrix", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body)});
+    const d = await r.json();
+    if (runId !== pmRunNr) return;
+    if (d.fehler) throw new Error(d.fehler);
+    PM = {antwort: d};
+  } catch (f) {
+    if (runId !== pmRunNr) return;
+    PM = {fehler: () => t("fehlgeschlagen", {text: f.message})};
+  }
+  pmShow();
+}
+function pmShow() {
+  const box = $("pm-ergebnis");
+  box.querySelectorAll(".gv-matrix").forEach(p => window.Plotly && Plotly.purge(p));
+  box.innerHTML = "";
+  if (!PM) return;
+  if (PM.fehler) return box.append(el("div", {class: "info fehler"}, el("span", {}, PM.fehler())));
+  const d = PM.antwort, S = d.serien, k = S.length, m = d.verfahren;
+  if (d.hinweise.length) box.append(el("div", {class: "meldung"}, hintsText(d.hinweise)));
+  if (d.zu_klein.length) box.append(el("p", {class: "hinweis"},
+    t("gv_zu_klein", {liste: d.zu_klein.map(x => `${x.name} (n = ${x.n})`).join(", ")})));
+  if (k < 2) return box.append(el("div", {class: "info fehler"}, el("span", {}, t("pm_zu_wenig"))));
+  const value = c => m === "pearson" ? `r = ${num(c.wert, 3)}` : m === "ad" ? `p ${pCappedText(c.wert)}` : `p ${pText(c.wert)}`;
+  const short = c => m === "pearson" ? num(c.wert, 3) : num(c.wert, 2);
+  const names = S.map(s => s.name);
+  const axisNames = names.map((n, i) => names.indexOf(n) === i ? n : `${n} (${i + 1})`);
+  const z = [], text = [], hover = [];
+  let ok = 0, all = 0, areaDiff = 0;
+  for (let i = 0; i < k; i++) {
+    z.push([]); text.push([]); hover.push([]);
+    for (let j = 0; j < k; j++) {
+      const c = d.zellen[i][j];
+      const pair = m === "ks" ? t("pm_paar_ks", {a: names[i], b: names[j]}) : `${names[i]} – ${names[j]}`;
+      if (!c) { z[i].push(null); text[i].push(""); hover[i].push(""); continue; }
+      if (c.flaeche === false) {
+        z[i].push(0.5); text[i].push("≠ A"); hover[i].push(`${pair}: ${t("pm_flaeche")}`);
+        if (m === "ks" || j > i) areaDiff++;
+        continue;
+      }
+      z[i].push(c.ok ? 1 : 0);
+      text[i].push(`${c.ok ? "✓" : "✗"} ${short(c)}`);
+      hover[i].push(`${pair}: ${value(c)} – ${t(c.ok ? "pm_ja_" + m : "pm_nein_" + m)}`);
+      if (m === "ks" || j > i) { all++; if (c.ok) ok++; }
+    }
+  }
+  box.append(el("div", {class: "kombi-zeile"}, t("pm_summe_" + m, {ok, n: all, s: num(d.schwelle, 2)}) +
+    (areaDiff ? " " + t("pm_flaeche_n", {n: areaDiff}) : "")));
+  const matrix = el("div", {class: "gv-matrix"});
+  matrix.style.height = `${Math.max(360, (k > 20 ? 18 : 34) * k + 170)}px`;
+  box.append(matrix, el("p", {class: "hinweis"}, t(m === "ks" ? "pm_klick_ks" : "pm_klick")));
+  if (!window.Plotly) return;
+  const [good, bad, grey] = [transparent(css("--gut"), 0.45), transparent(css("--warn"), 0.45), css("--rand-stark")];
+  Plotly.newPlot(matrix, [
+    {type: "heatmap", x: axisNames, y: axisNames, z, text, hovertext: hover, hoverinfo: "text",
+      texttemplate: k <= 20 ? "%{text}" : "", textfont: {size: 11, color: css("--text")}, zmin: 0, zmax: 1, showscale: false,
+      colorscale: [[0, bad], [0.33, bad], [0.34, grey], [0.66, grey], [0.67, good], [1, good]], xgap: 2, ygap: 2},
+    ...[[good, t("pm_ja_" + m)], [bad, t("pm_nein_" + m)]].map(([color, name]) => ({
+      x: [null], y: [null], type: "scatter", mode: "markers", name, marker: {symbol: "square", size: 12, color}}))],
+    {title: {text: t("pm_" + m), font: {size: 12}, x: 0.02, xanchor: "left"},
+     margin: {l: m === "ks" ? 135 : 110, r: 10, t: 34, b: 110}, paper_bgcolor: css("--flaeche"), plot_bgcolor: css("--flaeche"),
+     font: {color: css("--text"), family: "Segoe UI, system-ui, sans-serif"},
+     separators: LANG === "de" ? ",." : ".,",
+     xaxis: {type: "category", showgrid: false, zeroline: false, tickangle: k > 6 ? -40 : 0,
+       title: m === "ks" ? {text: t("pg_punkte"), font: {size: 11}} : undefined},
+     yaxis: {type: "category", showgrid: false, zeroline: false, autorange: "reversed",
+       title: m === "ks" ? {text: t("pg_linie"), font: {size: 11}} : undefined},
+     legend: {orientation: "h", y: -0.12, x: 0, font: {size: 11}}},
+    {responsive: true, displaylogo: false, modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d"]});
+  matrix.on("plotly_click", ev => {
+    const pt = ev.points && ev.points[0];
+    if (!pt || pt.data.type !== "heatmap") return;
+    const [i, j] = pt.pointIndex;
+    const a = Z.serien[S[i].index], b = Z.serien[S[j].index];
+    if (i !== j && a && b) selectPair(a, b);
+  });
+}
+
 function fillViewList(views) {
   DATA.ansichten = views || {};
   const sel = $("sel-ansicht");
@@ -2832,7 +3003,7 @@ function applyView(view) {
   // Set fields that older views do not know to "off" instead of keeping
   // the state of the previous view
   Z.zielflaeche = "0"; Z.kombi = null; COMBINE = null;
-  Z.valid = null; VALID = null; Z.gv = null; GC = null; Z.pg = null; PG = null; Z.namensspalten = []; Z.global = {}; Z.teilen_auswahl = null; Z.teilen_basis = null;
+  Z.valid = null; VALID = null; Z.gv = null; GC = null; Z.pg = null; PG = null; Z.pm = null; PM = null; Z.namensspalten = []; Z.global = {}; Z.teilen_auswahl = null; Z.teilen_basis = null;
   Object.assign(Z, JSON.parse(JSON.stringify(view)));
   const affected = [];
   for (const s of Z.serien) {

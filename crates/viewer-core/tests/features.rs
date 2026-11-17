@@ -106,3 +106,51 @@ fn points_vs_line_bands_contain_the_lines() {
         }
     }
 }
+
+#[test]
+fn pair_matrix_matches_the_two_series_checks() {
+    let v = viewer();
+    let d = v.data();
+    // one test area for all, then three series by another column
+    let ring = d.ring_column.clone();
+    let mut base = serde_json::Map::new();
+    if let Some(rc) = &ring {
+        let c = &d.columns[d.column_index(rc).unwrap()];
+        let best = c.values.iter().max_by_key(|x| x.n).unwrap();
+        base.insert(rc.clone(), json!([best.key]));
+    }
+    let col = d.columns.iter().find(|c| Some(&c.name) != ring.as_ref() && c.values.len() >= 3).unwrap();
+    let series: Vec<_> = col.values.iter().take(3).enumerate().map(|(i, val)| {
+        let mut f = base.clone();
+        f.insert(col.name.clone(), json!([val.key]));
+        json!({"name": val.display, "filter": f, "index": i})
+    }).collect();
+    let settings = json!({"methode": "m1_ls", "plotpositionen": "hazen"});
+    for method in ["pearson", "ad", "ks"] {
+        let mut req = settings.clone();
+        req["serien"] = json!(series);
+        req["verfahren"] = json!(method);
+        let m = v.request("/api/paarmatrix", &req);
+        let k = m["serien"].as_array().unwrap().len();
+        assert!(k >= 2, "{method}: {m}");
+        for i in 0..k {
+            assert!(m["zellen"][i][i].is_null());
+            for j in 0..k {
+                if i == j { continue; }
+                let (a, b) = (series[m["serien"][i]["index"].as_u64().unwrap() as usize].clone(),
+                              series[m["serien"][j]["index"].as_u64().unwrap() as usize].clone());
+                let mut pair = settings.clone();
+                pair["serie_a"] = a;
+                pair["serie_b"] = b;
+                let cell = &m["zellen"][i][j]["wert"];
+                let expected = match method {
+                    "pearson" => v.request("/api/kombinieren", &pair)["pearson"]["r"].clone(),
+                    "ad" => v.request("/api/kombinieren", &pair)["ad_zwei"]["p"].clone(),
+                    _ => v.request("/api/punkte_gerade", &pair)["weibull"]["ks"]["p"].clone(),
+                };
+                let (x, y) = (cell.as_f64().unwrap(), expected.as_f64().unwrap());
+                assert!((x - y).abs() < 1e-12, "{method} {i},{j}: {x} vs {y}");
+            }
+        }
+    }
+}
