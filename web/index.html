@@ -165,6 +165,9 @@
   .info span{flex:1}
   .kombi-auswahl{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin:10px 0 14px}
   .kombi-auswahl select{min-width:200px}
+  .pm-tests{display:grid;grid-template-columns:auto auto;gap:6px 16px;align-items:center;justify-content:start;margin:6px 0 10px}
+  .pm-tests label{display:flex;align-items:center;gap:6px;cursor:pointer}
+  .pm-tests .hinweis{margin:0}
   .kombi-raster{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start}
   @media (max-width:1150px){.kombi-raster{grid-template-columns:1fr}}
   .kombi-schritt{font-weight:600;margin:14px 0 6px}
@@ -191,6 +194,8 @@
   .buchstabe{font-weight:700;letter-spacing:.08em;color:var(--akzent-text)}
   .gv-matrix{width:100%;height:380px}
   .gv-matrix .nsewdrag{cursor:pointer !important}
+  .matrix-legende{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:11.5px;color:var(--text-2);margin:2px 0 4px}
+  .matrix-legende i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px}
   .datei{display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:13px}
   .datei .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .datei .n{font-variant-numeric:tabular-nums;color:var(--text-2);font-size:12px}
@@ -276,6 +281,7 @@
         <button class="klein" id="btn-ersetzen" data-t="ersetzen">Datei ersetzen …</button>
         <button class="klein" id="btn-hinzu" data-t="hinzufuegen">Datei hinzufügen …</button>
         <button class="klein" id="btn-standard" data-t="standard" data-t-title="standard_titel">Standarddatei</button>
+        <button class="klein" id="btn-layout" data-t="layout" data-t-title="layout_titel">Vorlage herunterladen</button>
       </div>
       <input type="file" id="datei-wahl" accept=".xlsx,.xlsm" hidden>
       <p class="hinweis" data-t="daten_hinweis">Excel-Datei hochladen.</p>
@@ -417,14 +423,17 @@
       <div id="pg-ergebnis"></div>
     </div>
     <div class="karte" style="margin-top:14px">
-      <h2 data-t="pm_titel">Paarmatrix (alle sichtbaren Serien)</h2>
+      <h2 data-t="pm_titel">Paarweiser Vergleich der Verteilungen (alle sichtbaren Serien)</h2>
       <p class="hinweis" data-t="pm_hinweis"></p>
-      <div class="kombi-auswahl">
-        <div class="feld"><label data-t="pm_verfahren">Verfahren</label><select id="pm-verfahren"></select></div>
-        <div class="feld" id="pm-schwelle-feld"><label data-t="kombi_schwelle">Korrelation ab</label><select id="pm-schwelle"></select></div>
-        <div class="feld" id="pm-vert-feld"><label data-t="verteilung">Verteilung</label><select id="pm-verteilung"></select></div>
-        <div class="feld"><label>&nbsp;</label><button class="primaer" id="btn-pm" data-t="pm_start">Berechnen</button></div>
+      <div class="pm-tests">
+        <label><input type="checkbox" id="pm-pearson"> <span data-t="pm_pearson">Pearson</span></label>
+        <select id="pm-schwelle"></select>
+        <label><input type="checkbox" id="pm-ad"> <span data-t="pm_ad">AD</span></label>
+        <span class="hinweis">α = 5 %</span>
+        <label><input type="checkbox" id="pm-ks"> <span data-t="pm_ks">KS</span></label>
+        <span><select id="pm-verteilung"></select> <span class="hinweis">α = 5 %</span></span>
       </div>
+      <button class="primaer" id="btn-pm" data-t="pm_start">Berechnen</button>
       <div id="pm-ergebnis"></div>
     </div>
   </section>
@@ -531,6 +540,7 @@ const TEXTS = {
     lade: "lädt …", messwerte: "Messwerte", blatt: "Blatt „{blatt}“", dateien_n: "{n} Dateien",
     daten: "Daten", ersetzen: "Datei ersetzen …", hinzufuegen: "Datei hinzufügen …",
     standard: "Beispieldaten", standard_titel: "Synthetische Beispieldaten laden (ersetzt die geladenen Dateien)",
+    layout: "Vorlage herunterladen", layout_titel: "Leere Excel-Vorlage (Spalten und Blatt „Dataset“) zum Eintragen eigener Messwerte",
     daten_hinweis: "Excel (.xlsx) mit einem Blatt „Dataset“ oder „Datensatz“ und einer Spalte mit „fracture stress“ bzw. „Bruchspannung“ im Namen. Die Dateien bleiben in diesem Browser – sie werden nirgendwohin hochgeladen.",
     datei_entfernen: "Datei entfernen",
     laedt_hoch: "„{datei}“ wird eingelesen …",
@@ -707,9 +717,10 @@ const TEXTS = {
     pg_ks_ok: "verträglich (nicht abgelehnt, α = 5 %)", pg_ks_nein: "weicht ab (abgelehnt, α = 5 %)",
     pg_plot_titel: "Punkte: {b}  ·  Gerade: {a}",
     pg_band: "Konfidenzband {name}",
-    pm_titel: "Paarmatrix (alle sichtbaren Serien)",
-    pm_hinweis: "Prüft jedes Paar sichtbarer Serien mit einem der Verfahren aus „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“ – mit den Einstellungen oben. Grün ✓ = Kriterium erfüllt, rot ✗ = nicht erfüllt, grau = verschiedene Prüfflächen ohne Umrechnung. Hinweis: Pearson r allein erkennt keinen Niveauunterschied; dafür Anderson-Darling oder KS.",
-    pm_verfahren: "Verfahren", pm_start: "Berechnen",
+    pm_titel: "Paarweiser Vergleich der Verteilungen (alle sichtbaren Serien)",
+    pm_hinweis: "Vergleicht die ganze Verteilung (Niveau und Streuung). Nur das Niveau: Dunn unter „Gruppenvergleich“ oben. Prüft jedes Paar sichtbarer Serien mit den angehakten Tests aus „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“. Jedes Feld zeigt ✓ / ✗ je Test; grün = alle angehakten Tests bestanden, rot = mindestens einer nicht, grau = verschiedene Prüfflächen ohne Umrechnung. Hinweis: Pearson r allein erkennt keinen Niveauunterschied; dafür Anderson-Darling oder KS.",
+    pm_start: "Berechnen", pm_kurz_pearson: "r", pm_kurz_ad: "p<sub>AD</sub>", pm_kurz_ks: "p<sub>KS</sub>",
+    pm_alle_ok: "alle gewählten Tests bestanden", pm_eins_nein: "mindestens ein Test nicht bestanden",
     pm_pearson: "Pearson-Korrelation (Q-Q, ln σ)", pm_ad: "Zwei-Stichproben-Anderson-Darling", pm_ks: "Punkte gegen Ausgleichsgerade (KS-Test)",
     pm_paar_ks: "Gerade {a} · Punkte {b}",
     pm_flaeche: "verschiedene Prüfflächen – nicht geprüft (oben „Prüffläche“ wählen)",
@@ -718,11 +729,9 @@ const TEXTS = {
     pm_ja_pearson: "Korrelation", pm_nein_pearson: "keine ausreichende Korrelation",
     pm_ja_ad: "gleiche Verteilung nicht abgelehnt", pm_nein_ad: "gleiche Verteilung abgelehnt",
     pm_ja_ks: "verträglich", pm_nein_ks: "weicht ab",
-    pm_summe_pearson: "{ok} von {n} Paaren mit r ≥ {s}.",
-    pm_summe_ad: "{ok} von {n} Paaren: gleiche Verteilung nicht abgelehnt (α = 5 %).",
-    pm_summe_ks: "{ok} von {n} Kombinationen verträglich (KS-Test, α = 5 %).",
-    pm_klick: "Klick auf ein Feld wählt das Paar in „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“ aus.",
-    pm_klick_ks: "Zeile = Gerade, Spalte = Punkte (nicht symmetrisch). Klick auf ein Feld wählt das Paar in „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“ aus.",
+    pm_summe: "{ok} von {n} Paaren bestehen alle gewählten Tests ({tests}).",
+    pm_klick: "Klick auf ein Feld wählt das Paar in „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“ aus und übernimmt die Einstellungen (Korrelationsschwelle, Verteilung).",
+    pm_klick_ks: "Zeile = Gerade, Spalte = Punkte (nicht symmetrisch). Klick auf ein Feld wählt das Paar in „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“ aus und übernimmt die Einstellungen (Korrelationsschwelle, Verteilung).",
     gv_klick: "Klick auf ein Feld wählt die beiden Gruppen unten in „Serien kombinieren“ und „Punkte gegen Ausgleichsgerade“ aus und prüft sie. Beim Aufteilen einer Serie werden die beiden Serien dafür angelegt.",
     hinweis_filter: "Klick auf eine Serie öffnet ihre Filter unten. Die Filter wirken wie im Konfigurator: UND zwischen Spalten, ODER innerhalb einer Spalte.",
     serie_bearbeiten: "Serie bearbeiten", name_platzhalter: "Name der Serie",
@@ -772,6 +781,7 @@ const TEXTS = {
     lade: "loading …", messwerte: "measurements", blatt: "sheet “{blatt}”", dateien_n: "{n} files",
     daten: "Data", ersetzen: "Replace file …", hinzufuegen: "Add file …",
     standard: "Example data", standard_titel: "Load synthetic example data (replaces the loaded files)",
+    layout: "Download layout", layout_titel: "Empty Excel layout (columns and sheet “Dataset”) for entering your own measurements",
     daten_hinweis: "Excel (.xlsx) with a sheet “Dataset” or “Datensatz” and a column with “fracture stress” or “Bruchspannung” in its name. The files stay in this browser – they are not uploaded anywhere.",
     datei_entfernen: "Remove file",
     laedt_hoch: "Reading “{datei}” …",
@@ -948,9 +958,10 @@ const TEXTS = {
     pg_ks_ok: "consistent (not rejected, α = 5 %)", pg_ks_nein: "differs (rejected, α = 5 %)",
     pg_plot_titel: "Points: {b}  ·  Line: {a}",
     pg_band: "confidence band {name}",
-    pm_titel: "Pairwise matrix (all visible series)",
-    pm_hinweis: "Checks every pair of visible series with one of the methods from “Combine series” and “Points against a fitted line” – with the settings above. Green ✓ = criterion met, red ✗ = not met, grey = different test areas without conversion. Note: Pearson r alone cannot detect a level difference; use Anderson-Darling or KS for that.",
-    pm_verfahren: "Method", pm_start: "Calculate",
+    pm_titel: "Pairwise distribution comparison (all visible series)",
+    pm_hinweis: "Compares the whole distribution (level and scatter). Level only: Dunn under “Group comparison” above. Checks every pair of visible series with the ticked tests from “Combine series” and “Points against a fitted line”. Each cell shows ✓ / ✗ per test; green = all ticked tests passed, red = at least one failed, grey = different test areas without conversion. Note: Pearson r alone cannot detect a level difference; use Anderson-Darling or KS for that.",
+    pm_start: "Calculate", pm_kurz_pearson: "r", pm_kurz_ad: "p<sub>AD</sub>", pm_kurz_ks: "p<sub>KS</sub>",
+    pm_alle_ok: "all selected tests passed", pm_eins_nein: "at least one test failed",
     pm_pearson: "Pearson correlation (Q-Q, ln σ)", pm_ad: "Two-sample Anderson-Darling", pm_ks: "Points against fitted line (KS test)",
     pm_paar_ks: "line {a} · points {b}",
     pm_flaeche: "different test areas – not checked (choose a “Test area” above)",
@@ -959,11 +970,9 @@ const TEXTS = {
     pm_ja_pearson: "correlated", pm_nein_pearson: "no sufficient correlation",
     pm_ja_ad: "same distribution not rejected", pm_nein_ad: "same distribution rejected",
     pm_ja_ks: "consistent", pm_nein_ks: "differs",
-    pm_summe_pearson: "{ok} of {n} pairs with r ≥ {s}.",
-    pm_summe_ad: "{ok} of {n} pairs: same distribution not rejected (α = 5 %).",
-    pm_summe_ks: "{ok} of {n} combinations consistent (KS test, α = 5 %).",
-    pm_klick: "Click a cell to select the pair in “Combine series” and “Points against a fitted line”.",
-    pm_klick_ks: "Row = line, column = points (not symmetric). Click a cell to select the pair in “Combine series” and “Points against a fitted line”.",
+    pm_summe: "{ok} of {n} pairs pass all selected tests ({tests}).",
+    pm_klick: "Click a cell to select the pair in “Combine series” and “Points against a fitted line” with the same settings (correlation threshold, distribution).",
+    pm_klick_ks: "Row = line, column = points (not symmetric). Click a cell to select the pair in “Combine series” and “Points against a fitted line” with the same settings (correlation threshold, distribution).",
     gv_klick: "Click a cell to select the two groups below in “Combine series” and “Points against a fitted line” and check them. When splitting one series, the two series are created for this.",
     hinweis_filter: "Click a series to edit its filters below. Filters combine like in the Konfigurator: AND across columns, OR within a column.",
     serie_bearbeiten: "Edit series", name_platzhalter: "Series name",
@@ -1344,7 +1353,7 @@ function bindControls() {
   $("hover-standard").addEventListener("click", () => { Z.hover = hoverDefaults(); drawHoverList(); recalculate(0); });
   $("btn-pg").addEventListener("click", () => pgCheck());
   $("btn-pm").addEventListener("click", () => pmCompute());
-  for (const id of ["pm-verfahren", "pm-schwelle", "pm-verteilung"]) $(id).addEventListener("change", () => {
+  for (const id of ["pm-pearson", "pm-ad", "pm-ks", "pm-schwelle", "pm-verteilung"]) $(id).addEventListener("change", () => {
     pmShowFields(); pmRemember();
     if (PM) pmCompute();
   });
@@ -1375,6 +1384,11 @@ function bindControls() {
   });
   $("btn-ersetzen").addEventListener("click", () => { uploadMode = "ersetzen"; $("datei-wahl").click(); });
   $("btn-hinzu").addEventListener("click", () => { uploadMode = "hinzufuegen"; $("datei-wahl").click(); });
+  // empty Excel layout (static file next to the page; nothing is uploaded)
+  $("btn-layout").addEventListener("click", () => {
+    const a = el("a", {href: "glass_strength_lab_layout.xlsx", download: "glass_strength_lab_layout.xlsx"});
+    document.body.append(a); a.click(); a.remove();
+  });
   $("btn-standard").addEventListener("click", () => dataAction("/api/standard_laden", {}, d =>
     t("ok_standard", {datei: d.dateien[0].datei, n: d.zeilen.length})));
   $("datei-wahl").addEventListener("change", () => {
@@ -2327,10 +2341,13 @@ function gcShow() {
   left.append(el("p", {class: "hinweis"}, t("gv_grenze")));
 
   const matrix = el("div", {class: "gv-matrix"});
+  const legend = matrixLegend([[css("--sig"), t("gv_unterschied")], [css("--nsig"), t("gv_kein_unterschied")]]);
   const grid = el("div", {class: "kombi-raster"}, left,
-    el("div", {}, matrix, el("p", {class: "hinweis"}, t("gv_klick"))));
-  if (d.gruppen.length > 8) grid.style.gridTemplateColumns = "1fr";
-  matrix.style.height = `${Math.max(340, 34 * d.gruppen.length + 160)}px`;
+    el("div", {}, matrix, legend, el("p", {class: "hinweis"}, t("gv_klick"))));
+  // long names need the full width (the side column is only 360 px)
+  const lab = matrixLabels(d.gruppen.map(g => g.name));
+  if (d.gruppen.length > 8 || (d.gruppen.length > 3 && lab.longest > 12)) grid.style.gridTemplateColumns = "1fr";
+  matrix.style.height = `${Math.max(340, 34 * d.gruppen.length + 110 + lab.extraHeight)}px`;
   box.append(grid);
   if (!window.Plotly) return;
   gcMatrix(matrix, d);
@@ -2380,6 +2397,22 @@ async function selectPair(a, b, created = false) {
   window.scrollTo({top: card.getBoundingClientRect().top + window.scrollY - (header ? header.offsetHeight : 0) - 10, behavior: "smooth"});
 }
 
+// Axis labels of a k × k matrix: long names shortened with "…" (hover keeps
+// the full name), equal names made distinct (Plotly merges equal
+// categories). Long labels are turned so they do not overlap; the margins
+// follow them (automargin), extra height keeps the cells square-ish.
+const MATRIX_MAX_LABEL = 26;
+function matrixLabels(names) {
+  const short = names.map(n => n.length > MATRIX_MAX_LABEL ? n.slice(0, MATRIX_MAX_LABEL - 1) + "…" : n);
+  const labels = short.map((n, i) => short.indexOf(n) === i ? n : `${n} (${i + 1})`);
+  const longest = Math.max(0, ...labels.map(n => n.length));
+  const turn = names.length > 6 || longest > 6;
+  return {labels, longest, angle: turn ? -45 : 0, extraHeight: turn ? Math.round(longest * 4.8) : 0};
+}
+// Legend as a line below the matrix (a Plotly legend collides with turned labels)
+const matrixLegend = entries => el("div", {class: "matrix-legende"},
+  entries.map(([color, text]) => el("span", {}, el("i", {style: `background:${color}`}), text)));
+
 function gcMatrix(div, d) {
   const names = d.gruppen.map(g => g.name), k = names.length;
   const empty = value => names.map(() => Array(k).fill(value));
@@ -2390,22 +2423,17 @@ function gcMatrix(div, d) {
     hover[i][j] = `${names[i]} – ${names[j]}: p ${pText(p.p)} (z = ${num(p.z, 2)})`;
   }
   const [sig, nsig] = [css("--sig"), css("--nsig")];
-  // make names with the same content distinct (Plotly merges equal categories)
-  const axisNames = names.map((n, i) => names.indexOf(n) === i ? n : `${n} (${i + 1})`);
+  const {labels: axisNames, angle} = matrixLabels(names);
   Plotly.newPlot(div, [
     {type: "heatmap", x: axisNames, y: axisNames, z, text, hovertext: hover, hoverinfo: "text",
       texttemplate: "%{text}", textfont: {size: 11, color: css("--text")}, zmin: 0, zmax: 1, showscale: false,
-      colorscale: [[0, nsig], [0.5, nsig], [0.5, sig], [1, sig]], xgap: 2, ygap: 2},
-    ...[[sig, t("gv_unterschied")], [nsig, t("gv_kein_unterschied")]].map(([color, name]) => ({
-      x: [null], y: [null], type: "scatter", mode: "markers", name,
-      marker: {symbol: "square", size: 12, color: color}}))],
-    {title: {text: t("gv_matrix"), font: {size: 12}, x: 0.02, xanchor: "left"},
-     margin: {l: 90, r: 10, t: 34, b: 90}, paper_bgcolor: css("--flaeche"), plot_bgcolor: css("--flaeche"),
+      colorscale: [[0, nsig], [0.5, nsig], [0.5, sig], [1, sig]], xgap: 2, ygap: 2}],
+    {title: {text: t("gv_matrix"), font: {size: 12}, x: 0.02, xanchor: "left"}, showlegend: false,
+     margin: {l: 10, r: 10, t: 34, b: 10}, paper_bgcolor: css("--flaeche"), plot_bgcolor: css("--flaeche"),
      font: {color: css("--text"), family: "Segoe UI, system-ui, sans-serif"},
      separators: LANG === "de" ? ",." : ".,",
-     xaxis: {type: "category", showgrid: false, zeroline: false, tickangle: k > 6 ? -40 : 0},
-     yaxis: {type: "category", showgrid: false, zeroline: false, autorange: "reversed"},
-     legend: {orientation: "h", y: -0.18, x: 0, font: {size: 11}}},
+     xaxis: {type: "category", showgrid: false, zeroline: false, tickangle: angle, automargin: true},
+     yaxis: {type: "category", showgrid: false, zeroline: false, autorange: "reversed", automargin: true}},
     {responsive: true, displaylogo: false, modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d"]});
 }
 
@@ -2930,6 +2958,11 @@ function pgShow() {
 let PM = null;                // last result {antwort} or {fehler}
 let pmRunNr = 0;
 const PM_METHODS = ["pearson", "ad", "ks"];
+// Ticked tests (older states: one "verfahren" → only that one; nothing → all)
+function pmTests(p = Z.pm || {}) {
+  if (p.tests) return PM_METHODS.filter(m => p.tests[m]);
+  return p.verfahren ? [p.verfahren] : [...PM_METHODS];
+}
 
 function pmFillSelects() {
   const p = Z.pm || {};
@@ -2938,35 +2971,42 @@ function pmFillSelects() {
     for (const [v, text] of options) sel.append(el("option", {value: v}, text));
     sel.value = options.some(([v]) => v === value) ? value : options[0][0];
   };
-  fill("pm-verfahren", PM_METHODS.map(m => [m, t("pm_" + m)]), p.verfahren);
   fill("pm-schwelle", ["0.9", "0.95", "0.99"].map(w => [w, `r ≥ ${num(+w, 2)}`]), p.schwelle || "0.95");
   fill("pm-verteilung", [["weibull", "Weibull"], ["lognormal", t("lognormal")]], p.verteilung);
+  const ticked = pmTests(p);
+  for (const m of PM_METHODS) $("pm-" + m).checked = ticked.includes(m);
   pmShowFields();
 }
 function pmShowFields() {
-  const m = $("pm-verfahren").value;
-  $("pm-schwelle-feld").style.display = m === "pearson" ? "" : "none";
-  $("pm-vert-feld").style.display = m === "ks" ? "" : "none";
+  $("pm-schwelle").disabled = !$("pm-pearson").checked;
+  $("pm-verteilung").disabled = !$("pm-ks").checked;
+  $("btn-pm").disabled = !PM_METHODS.some(m => $("pm-" + m).checked);
 }
 function pmRemember(active) {
-  Z.pm = {verfahren: $("pm-verfahren").value, schwelle: $("pm-schwelle").value,
-    verteilung: $("pm-verteilung").value, aktiv: active ?? !!(Z.pm && Z.pm.aktiv)};
+  Z.pm = {tests: Object.fromEntries(PM_METHODS.map(m => [m, $("pm-" + m).checked])),
+    schwelle: $("pm-schwelle").value, verteilung: $("pm-verteilung").value,
+    aktiv: active ?? !!(Z.pm && Z.pm.aktiv)};
   saveState();
 }
+// One request per ticked test; the cells are combined in pmShow
 async function pmCompute() {
   pmRemember(true);
+  const tests = pmTests();
+  if (!tests.length) { PM = null; return pmShow(); }
   const source = Z.serien.map((s, i) => ({s, i})).filter(x => x.s.sichtbar);
-  const body = Object.assign({verfahren: $("pm-verfahren").value, schwelle: parseFloat($("pm-schwelle").value),
-    verteilung: $("pm-verteilung").value,
+  const base = Object.assign({schwelle: parseFloat($("pm-schwelle").value), verteilung: $("pm-verteilung").value,
     serien: source.map(x => Object.assign(seriesForServer(x.s), {index: x.i}))}, settingsForServer());
   const runId = ++pmRunNr;
   try {
-    const r = await fetch("/api/paarmatrix", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(body)});
-    const d = await r.json();
+    const answers = await Promise.all(tests.map(async m => {
+      const r = await fetch("/api/paarmatrix", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(Object.assign({verfahren: m}, base))});
+      const d = await r.json();
+      if (d.fehler) throw new Error(d.fehler);
+      return d;
+    }));
     if (runId !== pmRunNr) return;
-    if (d.fehler) throw new Error(d.fehler);
-    PM = {antwort: d};
+    PM = {tests, antworten: answers, schwelle: base.schwelle, verteilung: base.verteilung};
   } catch (f) {
     if (runId !== pmRunNr) return;
     PM = {fehler: () => t("fehlgeschlagen", {text: f.message})};
@@ -2979,63 +3019,81 @@ function pmShow() {
   box.innerHTML = "";
   if (!PM) return;
   if (PM.fehler) return box.append(el("div", {class: "info fehler"}, el("span", {}, PM.fehler())));
-  const d = PM.antwort, S = d.serien, k = S.length, m = d.verfahren;
-  if (d.hinweise.length) box.append(el("div", {class: "meldung"}, hintsText(d.hinweise)));
-  if (d.zu_klein.length) box.append(el("p", {class: "hinweis"},
-    t("gv_zu_klein", {liste: d.zu_klein.map(x => `${x.name} (n = ${x.n})`).join(", ")})));
+  const tests = PM.tests, D = PM.antworten, d0 = D[0], S = d0.serien, k = S.length;
+  const ks = tests.includes("ks");                  // KS: row = line, column = points (not symmetric)
+  if (d0.hinweise.length) box.append(el("div", {class: "meldung"}, hintsText(d0.hinweise)));
+  if (d0.zu_klein.length) box.append(el("p", {class: "hinweis"},
+    t("gv_zu_klein", {liste: d0.zu_klein.map(x => `${x.name} (n = ${x.n})`).join(", ")})));
   if (k < 2) return box.append(el("div", {class: "info fehler"}, el("span", {}, t("pm_zu_wenig"))));
-  const value = c => m === "pearson" ? `r = ${num(c.wert, 3)}` : m === "ad" ? `p ${pCappedText(c.wert)}` : `p ${pText(c.wert)}`;
-  const short = c => m === "pearson" ? num(c.wert, 3) : num(c.wert, 2);
+  const label = m => t("pm_kurz_" + m);
+  // "r = 0.990", "p_AD ≥ 0.25" (capped), "p_KS = 0.412"
+  const value = (m, c) => `${label(m)} ${m === "pearson" ? "= " + num(c.wert, 3) : m === "ad" ? pCappedText(c.wert) : pText(c.wert)}`;
   const names = S.map(s => s.name);
-  const axisNames = names.map((n, i) => names.indexOf(n) === i ? n : `${n} (${i + 1})`);
+  const {labels: axisNames, angle, extraHeight} = matrixLabels(names);
+  // full text up to 10 series, symbols only up to 20, none above
+  const full = k <= 10, compact = k <= 20;
   const z = [], text = [], hover = [];
   let ok = 0, all = 0, areaDiff = 0;
   for (let i = 0; i < k; i++) {
     z.push([]); text.push([]); hover.push([]);
     for (let j = 0; j < k; j++) {
-      const c = d.zellen[i][j];
-      const pair = m === "ks" ? t("pm_paar_ks", {a: names[i], b: names[j]}) : `${names[i]} – ${names[j]}`;
-      if (!c) { z[i].push(null); text[i].push(""); hover[i].push(""); continue; }
-      if (c.flaeche === false) {
+      const cells = D.map(d => d.zellen[i][j]);
+      const counts = ks || j > i;
+      const pair = ks ? t("pm_paar_ks", {a: names[i], b: names[j]}) : `${names[i]} – ${names[j]}`;
+      if (!cells[0]) { z[i].push(null); text[i].push(""); hover[i].push(""); continue; }
+      if (cells[0].flaeche === false) {
         z[i].push(0.5); text[i].push("≠ A"); hover[i].push(`${pair}: ${t("pm_flaeche")}`);
-        if (m === "ks" || j > i) areaDiff++;
+        if (counts) areaDiff++;
         continue;
       }
-      z[i].push(c.ok ? 1 : 0);
-      text[i].push(`${c.ok ? "✓" : "✗"} ${short(c)}`);
-      hover[i].push(`${pair}: ${value(c)} – ${t(c.ok ? "pm_ja_" + m : "pm_nein_" + m)}`);
-      if (m === "ks" || j > i) { all++; if (c.ok) ok++; }
+      const pass = cells.every(c => c.ok);
+      z[i].push(pass ? 1 : 0);
+      const mark = c => c.ok ? "✓" : "✗";
+      text[i].push(full ? tests.map((m, x) => `${mark(cells[x])} ${value(m, cells[x])}`).join("<br>")
+        : tests.map((m, x) => `${label(m)}${mark(cells[x])}`).join(" "));
+      hover[i].push(`<b>${pair}</b><br>` + tests.map((m, x) =>
+        `${mark(cells[x])} ${t("pm_" + m)}: ${value(m, cells[x])} – ${t(cells[x].ok ? "pm_ja_" + m : "pm_nein_" + m)}`).join("<br>"));
+      if (counts) { all++; if (pass) ok++; }
     }
   }
-  box.append(el("div", {class: "kombi-zeile"}, t("pm_summe_" + m, {ok, n: all, s: num(d.schwelle, 2)}) +
+  const settings = tests.map(m => m === "pearson" ? `r ≥ ${num(PM.schwelle, 2)}`
+    : m === "ad" ? "AD α = 5 %" : `KS ${PM.verteilung === "lognormal" ? t("lognormal") : "Weibull"} α = 5 %`).join(" · ");
+  box.append(el("div", {class: "kombi-zeile"}, t("pm_summe", {ok, n: all, tests: settings}) +
     (areaDiff ? " " + t("pm_flaeche_n", {n: areaDiff}) : "")));
   const matrix = el("div", {class: "gv-matrix"});
-  matrix.style.height = `${Math.max(360, (k > 20 ? 18 : 34) * k + 170)}px`;
-  box.append(matrix, el("p", {class: "hinweis"}, t(m === "ks" ? "pm_klick_ks" : "pm_klick")));
-  if (!window.Plotly) return;
+  const row = full ? Math.max(34, 18 * tests.length + 10) : compact ? 34 : 18;
+  matrix.style.height = `${Math.max(360, row * k + 110 + extraHeight)}px`;
   const [good, bad, grey] = [transparent(css("--gut"), 0.45), transparent(css("--warn"), 0.45), css("--rand-stark")];
+  const one = tests.length === 1;
+  box.append(matrix, matrixLegend([[good, t(one ? "pm_ja_" + tests[0] : "pm_alle_ok")], [bad, t(one ? "pm_nein_" + tests[0] : "pm_eins_nein")]]),
+    el("p", {class: "hinweis"}, t(ks ? "pm_klick_ks" : "pm_klick")));
+  if (!window.Plotly) return;
   Plotly.newPlot(matrix, [
     {type: "heatmap", x: axisNames, y: axisNames, z, text, hovertext: hover, hoverinfo: "text",
-      texttemplate: k <= 20 ? "%{text}" : "", textfont: {size: 11, color: css("--text")}, zmin: 0, zmax: 1, showscale: false,
-      colorscale: [[0, bad], [0.33, bad], [0.34, grey], [0.66, grey], [0.67, good], [1, good]], xgap: 2, ygap: 2},
-    ...[[good, t("pm_ja_" + m)], [bad, t("pm_nein_" + m)]].map(([color, name]) => ({
-      x: [null], y: [null], type: "scatter", mode: "markers", name, marker: {symbol: "square", size: 12, color}}))],
-    {title: {text: t("pm_" + m), font: {size: 12}, x: 0.02, xanchor: "left"},
-     margin: {l: m === "ks" ? 135 : 110, r: 10, t: 34, b: 110}, paper_bgcolor: css("--flaeche"), plot_bgcolor: css("--flaeche"),
+      texttemplate: compact ? "%{text}" : "", textfont: {size: full ? 10.5 : 10, color: css("--text")}, zmin: 0, zmax: 1, showscale: false,
+      colorscale: [[0, bad], [0.33, bad], [0.34, grey], [0.66, grey], [0.67, good], [1, good]], xgap: 2, ygap: 2}],
+    {title: {text: tests.map(m => t("pm_" + m)).join(" + "), font: {size: 12}, x: 0.02, xanchor: "left"}, showlegend: false,
+     margin: {l: 10, r: 10, t: 34, b: 10}, paper_bgcolor: css("--flaeche"), plot_bgcolor: css("--flaeche"),
      font: {color: css("--text"), family: "Segoe UI, system-ui, sans-serif"},
      separators: LANG === "de" ? ",." : ".,",
-     xaxis: {type: "category", showgrid: false, zeroline: false, tickangle: k > 6 ? -40 : 0,
-       title: m === "ks" ? {text: t("pg_punkte"), font: {size: 11}} : undefined},
-     yaxis: {type: "category", showgrid: false, zeroline: false, autorange: "reversed",
-       title: m === "ks" ? {text: t("pg_linie"), font: {size: 11}} : undefined},
-     legend: {orientation: "h", y: -0.12, x: 0, font: {size: 11}}},
+     xaxis: {type: "category", showgrid: false, zeroline: false, tickangle: angle, automargin: true,
+       title: ks ? {text: t("pg_punkte"), font: {size: 11}, standoff: 8} : undefined},
+     yaxis: {type: "category", showgrid: false, zeroline: false, autorange: "reversed", automargin: true,
+       title: ks ? {text: t("pg_linie"), font: {size: 11}, standoff: 8} : undefined}},
     {responsive: true, displaylogo: false, modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d"]});
   matrix.on("plotly_click", ev => {
     const pt = ev.points && ev.points[0];
     if (!pt || pt.data.type !== "heatmap") return;
     const [i, j] = pt.pointIndex;
     const a = Z.serien[S[i].index], b = Z.serien[S[j].index];
-    if (i !== j && a && b) selectPair(a, b);
+    if (i === j || !a || !b) return;
+    // take the test settings along: r threshold to "Combine series", the KS
+    // distribution to the distribution switch ("Points against a fitted line" follows it)
+    if (tests.includes("pearson")) Z.kombi = Object.assign(Z.kombi || {}, {r: String(PM.schwelle)});
+    if (ks && Z.art !== "beide" && Z.art !== PM.verteilung) {
+      Z.art = PM.verteilung; showSwitches(); drawDiagrams(); drawTables();
+    }
+    selectPair(a, b);
   });
 }
 
