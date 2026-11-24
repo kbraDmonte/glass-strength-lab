@@ -112,6 +112,16 @@
   .serie .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .serie .n{font-variant-numeric:tabular-nums;color:var(--text-2);font-size:12px}
   .serie .n.leer{color:var(--warn);font-weight:600}
+  /* grip: drag the row up/down to reorder (pointer events, see startRowDrag) */
+  .serie .griff{display:flex;align-items:center;justify-content:center;flex:0 0 auto;width:18px;height:22px;
+                margin:-3px 0 -3px -4px;border-radius:4px;color:var(--text-3);cursor:default;
+                touch-action:none;user-select:none}
+  .serie .griff:hover{color:var(--text);background:var(--hover)}
+  .serie .griff svg{width:10px;height:16px;fill:currentColor}
+  #serienliste.sortiert .serie{transition:transform .15s ease}
+  #serienliste.sortiert, #serienliste.sortiert *{cursor:default !important;user-select:none}
+  .serie.zieht{position:relative;z-index:5;background:var(--flaeche);border-color:var(--rand-stark);
+               box-shadow:0 3px 10px rgba(0,0,0,.18);transition:none !important}
   .ikon{border:0;background:none;padding:0 3px;color:var(--text-3);font-size:14px;line-height:1}
   .ikon:hover{color:var(--text);background:none}
   .ikon.weg:hover{color:var(--warn)}
@@ -235,7 +245,9 @@
   td.delta-pos{color:var(--gut-text)}
   tr.fehler td{color:var(--text-3)}
   .tab-titel{font-weight:600;margin:4px 0 6px}
-  .tab-wrap + .tab-titel{margin-top:18px}
+  .tab-wrap + .tab-titel, .export-leiste + .tab-titel{margin-top:18px}
+  .export-leiste{display:flex;justify-content:flex-end;gap:6px;margin:5px 0 2px}
+  .export-leiste button.klein{font-size:11px;padding:2px 9px;color:var(--text-2)}
   .fuss{font-size:12px;color:var(--text-3);margin-top:10px;line-height:1.5}
 </style>
 </head>
@@ -689,6 +701,7 @@ const TEXTS = {
     warnung_doppelt_name: "⚠ Gleicher Name, aber verschiedene Messwerte: {namen}",
     warnung_doppelt_daten: "⚠ Doppelte Serien (gleiche Filter, gleiche Messwerte): {paare}",
     global_aktiv: "Messwerte in allen Serien gefiltert: {text}",
+    ziehen: "Ziehen, um die Reihenfolge zu ändern",
     teilen_update: "Serien aktualisieren",
     tab_alle_sichtbaren: "Alle sichtbaren Serien (zusammen)",
     daten_zeigen: "Daten", daten_zeigen_titel: "Messwerte als Tabelle zeigen – markierte Serie oder alle sichtbaren zusammen (zum Kopieren und Speichern für Excel)",
@@ -776,6 +789,10 @@ const TEXTS = {
     csv_kopf: ["Verteilung", "Prüfserie", "n", "m bzw. μ", "β bzw. s", "R² %", "σf,min", "σf,max", "X",
       "σk,0,05", "σk,0,05;0,95", "σk,0,05 obere Grenze", "σx (Messwerte)", "VK (Messwerte) %", "σ (Verteilung)", "A²", "Zielfläche [cm²]", "Faktor", "σk,0,05;0,95 original", "Einstellungen"],
     csv_datei: "Glass_Strength_Lab_Kennwerte.csv",
+    export_latex: "LaTeX", export_png: "PNG", export_kopiert: "✓ kopiert", export_kopieren_fehler: "Kopieren nicht möglich",
+    export_latex_titel: "Tabelle als LaTeX-Code kopieren (booktabs)",
+    export_png_tab_titel: "Tabelle als PNG herunterladen (weiß, Publikationsstil)",
+    export_png_plot_titel: "Diagramm als PNG herunterladen (weißer Hintergrund, hohe Auflösung)",
   },
   en: {
     lade: "loading …", messwerte: "measurements", blatt: "sheet “{blatt}”", dateien_n: "{n} files",
@@ -930,6 +947,7 @@ const TEXTS = {
     warnung_doppelt_name: "⚠ Same name, but different measurements: {namen}",
     warnung_doppelt_daten: "⚠ Duplicate series (same filters, same measurements): {paare}",
     global_aktiv: "Measurements filtered in all series: {text}",
+    ziehen: "Drag to change the order",
     teilen_update: "Update series",
     tab_alle_sichtbaren: "All visible series (combined)",
     daten_zeigen: "Data", daten_zeigen_titel: "Show the measurements as a table – the selected series or all visible series combined (to copy or save for Excel)",
@@ -1017,6 +1035,10 @@ const TEXTS = {
     csv_kopf: ["Distribution", "Test series", "n", "m or μ", "β or s", "R² %", "σf,min", "σf,max", "X",
       "σk,0.05", "σk,0.05;0.95", "σk,0.05 upper bound", "σx (measured values)", "CV (measured values) %", "σ (fitted distribution)", "A²", "Target area [cm²]", "Factor", "σk,0.05;0.95 original", "Settings"],
     csv_datei: "Glass_Strength_Lab_results.csv",
+    export_latex: "LaTeX", export_png: "PNG", export_kopiert: "✓ copied", export_kopieren_fehler: "Copying not possible",
+    export_latex_titel: "Copy the table as LaTeX code (booktabs)",
+    export_png_tab_titel: "Download the table as PNG (white, publication style)",
+    export_png_plot_titel: "Download the plot as PNG (white background, high resolution)",
   },
 };
 
@@ -1355,7 +1377,8 @@ function bindControls() {
   $("btn-pm").addEventListener("click", () => pmCompute());
   for (const id of ["pm-pearson", "pm-ad", "pm-ks", "pm-schwelle", "pm-verteilung"]) $(id).addEventListener("change", () => {
     pmShowFields(); pmRemember();
-    if (PM) pmCompute();
+    // also after "nothing ticked" emptied the matrix (PM = null, card still active)
+    if (PM || (Z.pm && Z.pm.aktiv)) pmCompute();
   });
   pmFillSelects();
   for (const id of ["pg-a", "pg-b"]) $(id).addEventListener("change", () => {
@@ -1443,6 +1466,74 @@ function refreshAutoNames() {
 const filterKey = s => JSON.stringify(partFilters(s).map(f => Object.keys(f).sort()
   .map(k => [k, [...f[k]].sort()])).sort());
 
+// Move series `from` so that it lands before position `to` (0..length, in the
+// old numbering). Everything that refers to a series by its index (active
+// series, Combine series, points vs line, validation, group comparison) is
+// renumbered so it keeps pointing at the same series.
+function moveSeries(from, to) {
+  const n = Z.serien.length;
+  if (from < 0 || from >= n) return;
+  const target = to > from ? to - 1 : to;
+  if (target === from) return;
+  const order = [...Z.serien.keys()];
+  order.splice(target, 0, ...order.splice(from, 1));
+  const newIndex = new Map(order.map((old, neu) => [old, neu]));
+  const remap = v => (v === undefined || v === null || v === "" || !newIndex.has(+v)) ? v
+    : (typeof v === "number" ? newIndex.get(v) : String(newIndex.get(+v)));
+  Z.serien = order.map(old => Z.serien[old]);
+  Z.aktiv = remap(Z.aktiv);
+  for (const [obj, keys] of [[Z.kombi, ["a", "b"]], [Z.pg, ["a", "b"]], [Z.valid, ["serie"]], [Z.gv, ["serie"]]])
+    if (obj) for (const k of keys) obj[k] = remap(obj[k]);
+  drawAll();
+}
+
+// Grip (six dots) at the left of a series row. Dragging it moves the row
+// straight up/down (x stays fixed); the other rows slide aside to show the
+// place where it will land. Release = moveSeries.
+function grip(i) {
+  const g = el("span", {class: "griff", title: t("ziehen"), onclick: ev => ev.stopPropagation()});
+  g.innerHTML = '<svg viewBox="0 0 10 16"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/>'
+    + '<circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg>';
+  g.addEventListener("pointerdown", ev => startRowDrag(ev, i, g));
+  return g;
+}
+function startRowDrag(ev, i, g) {
+  if (ev.button !== 0) return;
+  ev.preventDefault(); ev.stopPropagation();
+  const list = $("serienliste"), rows = [...list.querySelectorAll(".serie")], row = rows[i];
+  if (!row || rows.length < 2) return;
+  const tops = rows.map(r => r.offsetTop), hs = rows.map(r => r.offsetHeight);
+  const step = rows.length > 1 ? Math.abs(tops[1] - tops[0]) || hs[i] : hs[i];   // row height + gap
+  const minDy = tops[0] - tops[i], maxDy = tops[rows.length - 1] - tops[i];
+  const startY = ev.clientY;
+  let target = i, moved = false;
+  g.setPointerCapture(ev.pointerId);
+  list.classList.add("sortiert"); row.classList.add("zieht");
+  const move = e => {
+    const dy = Math.max(minDy, Math.min(maxDy, e.clientY - startY));
+    if (Math.abs(dy) > 2) moved = true;
+    row.style.transform = `translateY(${dy}px)`;
+    const centre = tops[i] + hs[i] / 2 + dy;
+    // rows above count once the centre is past their middle, rows below once it reaches it (so the
+    // clamped ends, where the centre sits exactly on the first/last middle, still swap)
+    target = rows.filter((r, j) => j !== i && (j < i ? tops[j] + hs[j] / 2 < centre : tops[j] + hs[j] / 2 <= centre)).length;
+    rows.forEach((r, j) => {
+      if (j === i) return;
+      const shift = j < i && j >= target ? step : j > i && j <= target ? -step : 0;
+      r.style.transform = shift ? `translateY(${shift}px)` : "";
+    });
+  };
+  const end = () => {
+    g.removeEventListener("pointermove", move);
+    g.removeEventListener("pointerup", end); g.removeEventListener("pointercancel", end);
+    list.classList.remove("sortiert"); row.classList.remove("zieht");
+    rows.forEach(r => r.style.transform = "");
+    if (moved && target !== i) moveSeries(i, target > i ? target + 1 : target);
+  };
+  g.addEventListener("pointermove", move);
+  g.addEventListener("pointerup", end); g.addEventListener("pointercancel", end);
+}
+
 function drawSeriesList() {
   refreshAutoNames();
   const list = $("serienliste"); list.innerHTML = "";
@@ -1465,8 +1556,9 @@ function drawSeriesList() {
     const other = group.find(x => x !== s);
     const warn = other ? t("doppelt_daten", {name: other.name})
       : keysByName.get(s.name.trim()).size > 1 ? t("doppelt_name") : "";
-    list.append(el("div", {class: `serie${i === Z.aktiv ? " aktiv" : ""}${s.sichtbar ? "" : " versteckt"}`,
+    const row = el("div", {class: `serie${i === Z.aktiv ? " aktiv" : ""}${s.sichtbar ? "" : " versteckt"}`,
         onclick: () => { Z.aktiv = i; drawSeriesList(); drawEditor(); saveState(); }},
+      grip(i),
       el("span", {class: "punkt", style: `background:${displayColor(s.farbe)}`}),
       el("span", {class: "name", title: s.name}, s.name || t("ohne_namen")),
       warn ? el("span", {class: "doppelt", title: warn}, "⚠") : null,
@@ -1484,7 +1576,8 @@ function drawSeriesList() {
       el("button", {class: "ikon weg", title: t("entfernen"),
         onclick: ev => { ev.stopPropagation(); Z.serien.splice(i, 1);
           Z.aktiv = Math.max(0, Math.min(Z.aktiv, Z.serien.length - 1)); drawAll(); }}, "✕"),
-    ));
+    );
+    list.append(row);
   });
   if (!Z.serien.length) list.append(el("div", {class: "hinweis"}, t("keine_serie")));
   combineFillSelects(); validFillSelects(); gcFillSelects(); pgFillSelects(); fillValueSelect();
@@ -2383,7 +2476,8 @@ function gcSelectPair(ga, gb) {
 }
 // Two series as series 1 / 2 in "Combine series" and as line / points in
 // "Points against a fitted line"; both are checked and shown
-async function selectPair(a, b, created = false) {
+// `card`: which card to scroll to ("kombi" = Combine series, "pg" = points against a fitted line)
+async function selectPair(a, b, created = false, card = "kombi") {
   const [ia, ib] = [String(Z.serien.indexOf(a)), String(Z.serien.indexOf(b))];
   Z.kombi = {a: ia, b: ib, r: (Z.kombi && Z.kombi.r) || "0.95", aktiv: true};
   Z.pg = {a: ia, b: ib, aktiv: true};
@@ -2392,9 +2486,9 @@ async function selectPair(a, b, created = false) {
   // after both results are drawn (the page above may change height), card top
   // just below the sticky header
   await Promise.all([combineCheck(), pgCheck()]);
-  const card = $("kombi-ergebnis").closest(".karte");
+  const target = $(card === "pg" ? "pg-ergebnis" : "kombi-ergebnis").closest(".karte");
   const header = document.querySelector("header");
-  window.scrollTo({top: card.getBoundingClientRect().top + window.scrollY - (header ? header.offsetHeight : 0) - 10, behavior: "smooth"});
+  window.scrollTo({top: target.getBoundingClientRect().top + window.scrollY - (header ? header.offsetHeight : 0) - 10, behavior: "smooth"});
 }
 
 // Axis labels of a k × k matrix: long names shortened with "…" (hover keeps
@@ -2661,6 +2755,249 @@ function drawDiagrams() {
     data.push(...lineLegend(p.art, p.serien));
     Plotly.newPlot(div, data, layout(p.art, p.titel, p.serien), PLOT_CONFIG);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Export: every result table gets "LaTeX" (booktabs code to the clipboard)
+// and "PNG" (publication style: white, serif, booktabs rules); every plot
+// gets "PNG" (white background / light colours even in the dark theme).
+// The buttons are added by an observer, so new cards get them automatically.
+// ---------------------------------------------------------------------------
+const slug = s => (s || "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase()
+  .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60) || "table";
+
+// Caption: the card heading and the table's own title (.tab-titel)
+function exportCaption(node) {
+  const card = node.closest(".karte, .panel, dialog");
+  let head = "";
+  const h = card && card.querySelector("h2");
+  if (h) { const c = h.cloneNode(true); c.querySelectorAll(".rechts, button, select").forEach(x => x.remove()); head = c.textContent.trim(); }
+  let p = node.previousElementSibling, own = "";
+  while (p && !own) {
+    if (p.classList.contains("tab-titel")) own = p.textContent.trim();
+    if (p.classList.contains("tab-wrap")) break;
+    p = p.previousElementSibling;
+  }
+  return [head, own].filter(Boolean).join(" – ") || "Glass Strength Lab";
+}
+
+// Table → {head: [[cell]], body: [[cell]], ncol}; cell = {text, unit, span, bold}
+function tableModel(table) {
+  const cell = c => {
+    const k = c.cloneNode(true), small = k.querySelector("small");
+    if (small) small.remove();
+    return {text: k.textContent.replace(/⚠/g, "").replace(/\s+/g, " ").trim().replace(/^-(?=\d)/, "−"),
+      unit: small ? small.textContent.replace(/\s+/g, " ").trim() : "",
+      span: c.colSpan || 1, bold: c.classList.contains("massg"), th: c.tagName === "TH"};
+  };
+  let head = table.tHead ? [...table.tHead.rows].map(r => [...r.cells].map(cell)) : [];
+  const body = [...table.tBodies].flatMap(b => [...b.rows]).map(r => [...r.cells].map(cell));
+  if (!head.length && body.length && body[0].every(c => c.th)) head = [body.shift()];
+  const ncol = Math.max(1, ...[...head, ...body].map(r => r.reduce((a, c) => a + c.span, 0)));
+  return {head, body, ncol};
+}
+
+function latexText(s) {
+  const math = {"α": "\\alpha", "β": "\\beta", "γ": "\\gamma", "Δ": "\\Delta", "λ": "\\lambda", "μ": "\\mu",
+    "σ": "\\sigma", "Φ": "\\Phi", "χ": "\\chi", "≥": "\\geq", "≤": "\\leq", "±": "\\pm", "·": "\\cdot",
+    "×": "\\times", "−": "-", "→": "\\rightarrow", "≈": "\\approx", "²": "^{2}", "³": "^{3}", "¹": "^{1}", "✗": "\\times"};
+  s = s.replace(/\^\(([^()]*)\)/g, "\u0001$1\u0002");                       // (A0/A1)^(1/m)
+  s = s.replace(/\bp_([A-Za-z]+)/g, "\u0003$1\u0004");                          // p_AD → p with index
+  s = s.replace(/[\\&%$#_{}~^]/g, c => ({"\\": "\\textbackslash{}", "~": "\\textasciitilde{}", "^": "\\textasciicircum{}"}[c] || "\\" + c));
+  s = s.replace(/\u0001([^\u0002]*)\u0002/g, (m, x) => "$^{" + x + "}$");
+  s = s.replace(/\u0003([^\u0004]*)\u0004/g, (m, x) => "$p_{\\mathrm{" + x + "}}$");
+  // σ with an index: σf,min → $\sigma_{\mathrm{f,min}}$, σk,0,05;0,95 → $\sigma_{\mathrm{k,0,05;0,95}}$
+  s = s.replace(/σ([A-Za-z]+(?:[,;.][0-9A-Za-z]+)*)/g, (m, sub) => "$\\sigma_{\\mathrm{" + sub.replace(/,/g, "{,}") + "}}$");
+  s = s.replace(/[αβγΔλμσΦχ≥≤±·×−→≈²³¹✗]/g, c => "$" + math[c] + "$").replace(/\$\$/g, "");
+  return s.replace(/—/g, "---").replace(/–/g, "--").replace(/[„“”]/g, "\"").replace(/✓/g, "\\checkmark{}")
+    .replace(/ /g, "~");
+}
+
+function tableLatex(model, caption) {
+  const {head, body, ncol} = model;
+  const line = (cells, align) => cells.map(c => {
+    let x = latexText(c.text);
+    if (c.bold && x) x = `\\textbf{${x}}`;
+    return c.span > 1 ? `\\multicolumn{${c.span}}{${align}}{${x}}` : x;
+  }).join(" & ") + " \\\\";
+  const ticks = [...head, ...body].some(r => r.some(c => c.text.includes("✓")));
+  const out = ["% needs \\usepackage{booktabs}" + (ticks ? " and \\usepackage{amssymb}" : ""),
+    "\\begin{table}[htbp]", "  \\centering"];
+  if (ncol > 8) out.push("  \\small");
+  out.push(`  \\caption{${latexText(caption)}}`, `  \\label{tab:${slug(caption)}}`,
+    `  \\begin{tabular}{l${"r".repeat(ncol - 1)}}`, "    \\toprule");
+  for (const r of head) {
+    out.push("    " + line(r, "c"));
+    if (r.some(c => c.unit)) out.push("    " + line(r.map(c => ({text: c.unit, span: c.span})), "c"));
+  }
+  if (head.length) out.push("    \\midrule");
+  for (const r of body) out.push("    " + line(r, "l"));
+  out.push("    \\bottomrule", "  \\end{tabular}", "\\end{table}");
+  return out.join("\n");
+}
+
+// Publication-style PNG: white, black serif text, rules only at the top,
+// under the header and at the bottom (booktabs), no vertical lines.
+function tablePng(model, fileName) {
+  const {head, body, ncol} = model;
+  const S = body.length > 300 ? 2 : 3, FONT = '"Times New Roman", "Nimbus Roman", "Liberation Serif", serif';
+  const FS = 15, FU = 12.5, PAD = 9, M = 18, ROW = Math.round(FS * 1.65);
+  const cv = document.createElement("canvas"), g = cv.getContext("2d");
+  const setFont = (size, bold) => { g.font = `${bold ? "bold " : ""}${size}px ${FONT}`; };
+  // text → runs; σf,min / σk,0.05;0.95 / p_AD get their index as a subscript
+  const runs = text => {
+    const out = [], re = /σ([A-Za-z]+(?:[,;.][0-9A-Za-z]+)*)|\bp_([A-Za-z]+)/g;
+    let last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) out.push({t: text.slice(last, m.index)});
+      out.push({t: m[1] ? "σ" : "p"}, {t: m[1] || m[2], sub: true});
+      last = re.lastIndex;
+    }
+    if (last < text.length) out.push({t: text.slice(last)});
+    return out;
+  };
+  const widthOf = (text, size, bold) => runs(text).reduce((a, r) => {
+    setFont(r.sub ? size * 0.72 : size, bold); return a + g.measureText(r.t).width; }, 0);
+  const w = Array(ncol).fill(0);
+  for (const r of [...head, ...body]) {
+    let j = 0;
+    for (const c of r) {
+      if (c.span === 1) {
+        let x = widthOf(c.text, FS, c.bold);
+        if (c.unit) x = Math.max(x, widthOf(c.unit, FU, false));
+        w[j] = Math.max(w[j], x);
+      }
+      j += c.span;
+    }
+  }
+  const colX = [M]; w.forEach((x, j) => colX.push(colX[j] + x + 2 * PAD));
+  const headH = head.map(r => r.some(c => c.unit) ? ROW + Math.round(FU * 1.35) : ROW);
+  const W = colX[ncol] + M, H = M + 6 + headH.reduce((a, b) => a + b, 0) + 6 + body.length * ROW + 6 + M;
+  cv.width = Math.ceil(W * S); cv.height = Math.ceil(H * S);
+  g.scale(S, S); g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
+  g.strokeStyle = "#000"; g.textBaseline = "alphabetic";
+  const rule = (y, lw) => { g.lineWidth = lw; g.beginPath(); g.moveTo(M, y); g.lineTo(W - M, y); g.stroke(); };
+  const put = (text, j, span, y, align, size, bold, color) => {
+    g.fillStyle = color || "#000"; g.textAlign = "left";
+    const x0 = colX[j] + PAD, x1 = colX[j + span] - PAD, tw = widthOf(text, size, bold);
+    let x = align === "l" ? x0 : align === "c" ? (x0 + x1 - tw) / 2 : x1 - tw;
+    for (const r of runs(text)) {
+      setFont(r.sub ? size * 0.72 : size, bold);
+      g.fillText(r.t, x, r.sub ? y + size * 0.22 : y);
+      x += g.measureText(r.t).width;
+    }
+  };
+  let y = M; rule(y, 1.4); y += 6;
+  head.forEach((r, k) => {
+    let j = 0;
+    for (const c of r) {
+      const align = c.span > 1 ? "c" : j === 0 ? "l" : "r";
+      put(c.text, j, c.span, y + ROW - 8, align, FS, false);
+      if (c.unit) put(c.unit, j, c.span, y + ROW - 6 + FU * 1.2, align, FU, false, "#333");
+      j += c.span;
+    }
+    y += headH[k];
+  });
+  if (head.length) { y += 3; rule(y, 0.7); y += 3; }
+  for (const r of body) {
+    let j = 0;
+    for (const c of r) { put(c.text, j, c.span, y + ROW - 8, c.span > 1 || j === 0 ? "l" : "r", FS, c.bold); j += c.span; }
+    y += ROW;
+  }
+  y += 6; rule(y, 1.4);
+  cv.toBlob(blob => downloadBlob(blob, fileName), "image/png");
+}
+
+function downloadBlob(blob, fileName) {
+  const a = el("a", {href: URL.createObjectURL(blob), download: fileName});
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// Dark theme → the same plot in light colours: map every dark CSS colour
+// (and the brightened series colours) to its light counterpart.
+const EXPORT_VARS = ["--grund", "--flaeche", "--rand", "--rand-stark", "--text", "--text-2", "--text-3", "--text-aus",
+  "--akzent", "--akzent-hell", "--akzent-rand", "--akzent-dunkel", "--akzent-text", "--gut", "--gut-text", "--warn",
+  "--warn-hell", "--achtung", "--achtung-hell", "--hover", "--gitter", "--achse", "--linie-5", "--zweit", "--sig", "--nsig"];
+function lightColours() {
+  const map = new Map();
+  if (!isDark()) return map;
+  const root = document.documentElement, before = root.dataset.theme;
+  const dark = EXPORT_VARS.map(css);
+  root.dataset.theme = "light";
+  const light = EXPORT_VARS.map(css);
+  if (before === undefined) delete root.dataset.theme; else root.dataset.theme = before;
+  dark.forEach((d, i) => { if (d && d !== light[i]) map.set(d.toLowerCase(), light[i]); });
+  for (const s of Z.serien) if (s.farbe) map.set(displayColor(s.farbe).toLowerCase(), s.farbe);
+  return map;
+}
+function recolour(v, map) {
+  if (typeof v === "string") {
+    const hit = map.get(v.toLowerCase());
+    if (hit) return hit;
+    const m = v.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/);
+    if (m) {
+      const hex = "#" + [m[1], m[2], m[3]].map(x => (+x).toString(16).padStart(2, "0")).join("");
+      const l = map.get(hex);
+      if (l && /^#[0-9a-f]{6}$/i.test(l)) return m[4] !== undefined ? transparent(l, +m[4]) : l;
+    }
+    return v;
+  }
+  if (Array.isArray(v)) return v.map(x => recolour(x, map));
+  if (v && typeof v === "object") { const o = {}; for (const k in v) o[k] = recolour(v[k], map); return o; }
+  return v;
+}
+
+async function plotPng(gd, button) {
+  if (!window.Plotly || !gd.data) return;
+  const map = lightColours();
+  const copy = x => JSON.parse(JSON.stringify(x, (k, v) => ArrayBuffer.isView(v) ? Array.from(v) : v));
+  const data = recolour(copy(gd.data), map), layout = recolour(copy(gd.layout), map);
+  Object.assign(layout, {paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff"});
+  const fl = gd._fullLayout || {};
+  const title = layout.title && (typeof layout.title === "string" ? layout.title : layout.title.text);
+  const name = slug(String(title || "").replace(/<[^>]+>/g, "") || exportCaption(gd));
+  button.disabled = true;
+  try {
+    const url = await Plotly.toImage({data, layout, config: {displayModeBar: false}},
+      {format: "png", width: fl.width || 900, height: fl.height || 500, scale: 3});
+    downloadBlob(await (await fetch(url)).blob(), `${name === "table" ? "plot" : name}.png`);
+  } finally { button.disabled = false; }
+}
+
+function decorateExports() {
+  for (const wrap of document.querySelectorAll("main .tab-wrap:not([data-export])")) {
+    const table = wrap.querySelector("table");
+    if (!table) continue;
+    wrap.dataset.export = "1";
+    const latex = el("button", {class: "klein", "data-t": "export_latex", "data-t-title": "export_latex_titel", title: t("export_latex_titel"),
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText(tableLatex(tableModel(table), exportCaption(wrap)));
+          latex.textContent = t("export_kopiert");
+        } catch (e) { latex.textContent = t("export_kopieren_fehler"); }
+        setTimeout(() => { latex.textContent = t("export_latex"); }, 1600);
+      }}, t("export_latex"));
+    const png = el("button", {class: "klein", "data-t": "export_png", "data-t-title": "export_png_tab_titel", title: t("export_png_tab_titel"),
+      onclick: () => tablePng(tableModel(table), slug(exportCaption(wrap)) + ".png")}, t("export_png"));
+    wrap.after(el("div", {class: "export-leiste"}, latex, png));
+  }
+  for (const gd of document.querySelectorAll("main .js-plotly-plot:not([data-export])")) {
+    gd.dataset.export = "1";
+    const png = el("button", {class: "klein", "data-t": "export_png", "data-t-title": "export_png_plot_titel", title: t("export_png_plot_titel"),
+      onclick: () => plotPng(gd, png)}, t("export_png"));
+    const next = gd.nextElementSibling;
+    (next && next.classList.contains("matrix-legende") ? next : gd).after(el("div", {class: "export-leiste"}, png));
+  }
+}
+{
+  let queued = false;
+  const watch = () => new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; decorateExports(); });
+  }).observe(document.body, {childList: true, subtree: true});
+  if (document.body) watch(); else addEventListener("DOMContentLoaded", watch);
 }
 
 // ---------------------------------------------------------------------------
@@ -3093,7 +3430,8 @@ function pmShow() {
     if (ks && Z.art !== "beide" && Z.art !== PM.verteilung) {
       Z.art = PM.verteilung; showSwitches(); drawDiagrams(); drawTables();
     }
-    selectPair(a, b);
+    // only the KS check ticked: its card is "Points against a fitted line"
+    selectPair(a, b, false, tests.every(m => m === "ks") ? "pg" : "kombi");
   });
 }
 
