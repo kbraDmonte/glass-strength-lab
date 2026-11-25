@@ -246,8 +246,17 @@
   tr.fehler td{color:var(--text-3)}
   .tab-titel{font-weight:600;margin:4px 0 6px}
   .tab-wrap + .tab-titel, .export-leiste + .tab-titel{margin-top:18px}
+  .export-zelle{min-width:0}
   .export-leiste{display:flex;justify-content:flex-end;gap:6px;margin:5px 0 2px}
-  .export-leiste button.klein{font-size:11px;padding:2px 9px;color:var(--text-2)}
+  .export-leiste .export-knopf{display:inline-flex;align-items:center;justify-content:center;height:24px;min-width:30px;
+                               padding:0 7px;color:var(--text-2)}
+  .export-leiste .export-knopf:hover{color:var(--text)}
+  .bild-knopf svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;stroke-linecap:round}
+  .bild-knopf svg circle{fill:currentColor;stroke:none}
+  /* LaTeX logo: lowered E, raised small A (as in TeX's own \LaTeX) */
+  .latex-knopf{font-family:"Times New Roman","Nimbus Roman","Liberation Serif",serif;font-size:13px;letter-spacing:0}
+  .latex-knopf .la-a{font-size:.72em;position:relative;top:-.2em;margin:0 -.15em 0 -.36em}
+  .latex-knopf .la-e{position:relative;top:.22em;margin:0 -.12em 0 -.16em}
   .fuss{font-size:12px;color:var(--text-3);margin-top:10px;line-height:1.5}
 </style>
 </head>
@@ -789,10 +798,10 @@ const TEXTS = {
     csv_kopf: ["Verteilung", "Prüfserie", "n", "m bzw. μ", "β bzw. s", "R² %", "σf,min", "σf,max", "X",
       "σk,0,05", "σk,0,05;0,95", "σk,0,05 obere Grenze", "σx (Messwerte)", "VK (Messwerte) %", "σ (Verteilung)", "A²", "Zielfläche [cm²]", "Faktor", "σk,0,05;0,95 original", "Einstellungen"],
     csv_datei: "Glass_Strength_Lab_Kennwerte.csv",
-    export_latex: "LaTeX", export_png: "PNG", export_kopiert: "✓ kopiert", export_kopieren_fehler: "Kopieren nicht möglich",
+    export_kopiert: "LaTeX-Code kopiert", export_kopieren_fehler: "Kopieren nicht möglich",
     export_latex_titel: "Tabelle als LaTeX-Code kopieren (booktabs)",
-    export_png_tab_titel: "Tabelle als PNG herunterladen (weiß, Publikationsstil)",
-    export_png_plot_titel: "Diagramm als PNG herunterladen (weißer Hintergrund, hohe Auflösung)",
+    export_tab_titel: "Tabelle als SVG herunterladen (Vektorgrafik, Publikationsstil: weiß, Linien wie booktabs)",
+    export_plot_titel: "Diagramm als SVG herunterladen (Vektorgrafik: in jeder Größe scharf, bearbeitbar; weißer Hintergrund)",
   },
   en: {
     lade: "loading …", messwerte: "measurements", blatt: "sheet “{blatt}”", dateien_n: "{n} files",
@@ -1035,10 +1044,10 @@ const TEXTS = {
     csv_kopf: ["Distribution", "Test series", "n", "m or μ", "β or s", "R² %", "σf,min", "σf,max", "X",
       "σk,0.05", "σk,0.05;0.95", "σk,0.05 upper bound", "σx (measured values)", "CV (measured values) %", "σ (fitted distribution)", "A²", "Target area [cm²]", "Factor", "σk,0.05;0.95 original", "Settings"],
     csv_datei: "Glass_Strength_Lab_results.csv",
-    export_latex: "LaTeX", export_png: "PNG", export_kopiert: "✓ copied", export_kopieren_fehler: "Copying not possible",
+    export_kopiert: "LaTeX code copied", export_kopieren_fehler: "Copying not possible",
     export_latex_titel: "Copy the table as LaTeX code (booktabs)",
-    export_png_tab_titel: "Download the table as PNG (white, publication style)",
-    export_png_plot_titel: "Download the plot as PNG (white background, high resolution)",
+    export_tab_titel: "Download the table as SVG (vector, publication style: white, booktabs rules)",
+    export_plot_titel: "Download the plot as SVG (vector: sharp at any size, editable; white background)",
   },
 };
 
@@ -2836,13 +2845,14 @@ function tableLatex(model, caption) {
   return out.join("\n");
 }
 
-// Publication-style PNG: white, black serif text, rules only at the top,
-// under the header and at the bottom (booktabs), no vertical lines.
-function tablePng(model, fileName) {
+// Publication-style SVG (vector): white, black serif text, rules only at the
+// top, under the header and at the bottom (booktabs), no vertical lines.
+// A canvas is used only to measure the text widths.
+function tableSvg(model, fileName) {
   const {head, body, ncol} = model;
-  const S = body.length > 300 ? 2 : 3, FONT = '"Times New Roman", "Nimbus Roman", "Liberation Serif", serif';
+  const FONT = "'Times New Roman', 'Nimbus Roman', 'Liberation Serif', serif";
   const FS = 15, FU = 12.5, PAD = 9, M = 18, ROW = Math.round(FS * 1.65);
-  const cv = document.createElement("canvas"), g = cv.getContext("2d");
+  const g = document.createElement("canvas").getContext("2d");
   const setFont = (size, bold) => { g.font = `${bold ? "bold " : ""}${size}px ${FONT}`; };
   // text → runs; σf,min / σk,0.05;0.95 / p_AD get their index as a subscript
   const runs = text => {
@@ -2856,8 +2866,8 @@ function tablePng(model, fileName) {
     if (last < text.length) out.push({t: text.slice(last)});
     return out;
   };
-  const widthOf = (text, size, bold) => runs(text).reduce((a, r) => {
-    setFont(r.sub ? size * 0.72 : size, bold); return a + g.measureText(r.t).width; }, 0);
+  const runWidth = (r, size, bold) => { setFont(r.sub ? size * 0.72 : size, bold); return g.measureText(r.t).width; };
+  const widthOf = (text, size, bold) => runs(text).reduce((a, r) => a + runWidth(r, size, bold), 0);
   const w = Array(ncol).fill(0);
   for (const r of [...head, ...body]) {
     let j = 0;
@@ -2872,20 +2882,21 @@ function tablePng(model, fileName) {
   }
   const colX = [M]; w.forEach((x, j) => colX.push(colX[j] + x + 2 * PAD));
   const headH = head.map(r => r.some(c => c.unit) ? ROW + Math.round(FU * 1.35) : ROW);
-  const W = colX[ncol] + M, H = M + 6 + headH.reduce((a, b) => a + b, 0) + 6 + body.length * ROW + 6 + M;
-  cv.width = Math.ceil(W * S); cv.height = Math.ceil(H * S);
-  g.scale(S, S); g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
-  g.strokeStyle = "#000"; g.textBaseline = "alphabetic";
-  const rule = (y, lw) => { g.lineWidth = lw; g.beginPath(); g.moveTo(M, y); g.lineTo(W - M, y); g.stroke(); };
+  const W = Math.ceil(colX[ncol] + M), H = Math.ceil(M + 6 + headH.reduce((a, b) => a + b, 0) + 6 + body.length * ROW + 6 + M);
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const f = x => +x.toFixed(2);
+  const parts = [];
+  const rule = (y, lw) => parts.push(`<line x1="${M}" y1="${f(y)}" x2="${W - M}" y2="${f(y)}" stroke="#000" stroke-width="${lw}"/>`);
   const put = (text, j, span, y, align, size, bold, color) => {
-    g.fillStyle = color || "#000"; g.textAlign = "left";
+    if (!text) return;
     const x0 = colX[j] + PAD, x1 = colX[j + span] - PAD, tw = widthOf(text, size, bold);
     let x = align === "l" ? x0 : align === "c" ? (x0 + x1 - tw) / 2 : x1 - tw;
-    for (const r of runs(text)) {
-      setFont(r.sub ? size * 0.72 : size, bold);
-      g.fillText(r.t, x, r.sub ? y + size * 0.22 : y);
-      x += g.measureText(r.t).width;
-    }
+    const spans = runs(text).map(r => {
+      const s = `<tspan x="${f(x)}" y="${f(r.sub ? y + size * 0.22 : y)}"${r.sub ? ` font-size="${f(size * 0.72)}"` : ""}>${esc(r.t)}</tspan>`;
+      x += runWidth(r, size, bold);
+      return s;
+    }).join("");
+    parts.push(`<text font-size="${size}"${bold ? ' font-weight="bold"' : ""}${color ? ` fill="${color}"` : ""} xml:space="preserve">${spans}</text>`);
   };
   let y = M; rule(y, 1.4); y += 6;
   head.forEach((r, k) => {
@@ -2905,7 +2916,9 @@ function tablePng(model, fileName) {
     y += ROW;
   }
   y += 6; rule(y, 1.4);
-  cv.toBlob(blob => downloadBlob(blob, fileName), "image/png");
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT}">\n`
+    + `<rect width="100%" height="100%" fill="#fff"/>\n${parts.join("\n")}\n</svg>\n`;
+  downloadBlob(new Blob([svg], {type: "image/svg+xml"}), fileName);
 }
 
 function downloadBlob(blob, fileName) {
@@ -2948,7 +2961,8 @@ function recolour(v, map) {
   return v;
 }
 
-async function plotPng(gd, button) {
+// format "png" (raster, 3× resolution) or "svg" (vector: sharp at any size, editable)
+async function plotImage(gd, button, format) {
   if (!window.Plotly || !gd.data) return;
   const map = lightColours();
   const copy = x => JSON.parse(JSON.stringify(x, (k, v) => ArrayBuffer.isView(v) ? Array.from(v) : v));
@@ -2960,35 +2974,53 @@ async function plotPng(gd, button) {
   button.disabled = true;
   try {
     const url = await Plotly.toImage({data, layout, config: {displayModeBar: false}},
-      {format: "png", width: fl.width || 900, height: fl.height || 500, scale: 3});
-    downloadBlob(await (await fetch(url)).blob(), `${name === "table" ? "plot" : name}.png`);
+      {format, width: fl.width || 900, height: fl.height || 500, scale: format === "png" ? 3 : 1});
+    downloadBlob(await (await fetch(url)).blob(), `${name === "table" ? "plot" : name}.${format}`);
   } finally { button.disabled = false; }
 }
 
+// Icon buttons: LaTeX logo (copy code) and picture (download SVG)
+const ICON_LATEX = 'L<span class="la-a">A</span>T<span class="la-e">E</span>X';
+const ICON_IMAGE = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/>'
+  + '<circle cx="5.5" cy="6.2" r="1.3"/><path d="M2 12.5l4-4 3 3 2-2 3.5 3.5"/></svg>';
+function iconButton(icon, titleKey, onclick, cls) {
+  const b = el("button", {class: `klein export-knopf ${cls}`, "data-t-title": titleKey, title: t(titleKey), onclick});
+  b.innerHTML = icon;
+  return b;
+}
 function decorateExports() {
   for (const wrap of document.querySelectorAll("main .tab-wrap:not([data-export])")) {
     const table = wrap.querySelector("table");
     if (!table) continue;
     wrap.dataset.export = "1";
-    const latex = el("button", {class: "klein", "data-t": "export_latex", "data-t-title": "export_latex_titel", title: t("export_latex_titel"),
-      onclick: async () => {
-        try {
-          await navigator.clipboard.writeText(tableLatex(tableModel(table), exportCaption(wrap)));
-          latex.textContent = t("export_kopiert");
-        } catch (e) { latex.textContent = t("export_kopieren_fehler"); }
-        setTimeout(() => { latex.textContent = t("export_latex"); }, 1600);
-      }}, t("export_latex"));
-    const png = el("button", {class: "klein", "data-t": "export_png", "data-t-title": "export_png_tab_titel", title: t("export_png_tab_titel"),
-      onclick: () => tablePng(tableModel(table), slug(exportCaption(wrap)) + ".png")}, t("export_png"));
-    wrap.after(el("div", {class: "export-leiste"}, latex, png));
+    const latex = iconButton(ICON_LATEX, "export_latex_titel", async () => {
+      let ok = true;
+      try { await navigator.clipboard.writeText(tableLatex(tableModel(table), exportCaption(wrap))); } catch (e) { ok = false; }
+      latex.textContent = ok ? "✓" : "✗"; latex.title = t(ok ? "export_kopiert" : "export_kopieren_fehler");
+      setTimeout(() => { latex.innerHTML = ICON_LATEX; latex.title = t("export_latex_titel"); }, 1400);
+    }, "latex-knopf");
+    const image = iconButton(ICON_IMAGE, "export_tab_titel",
+      () => tableSvg(tableModel(table), slug(exportCaption(wrap)) + ".svg"), "bild-knopf");
+    attachBar(wrap, el("div", {class: "export-leiste"}, latex, image));
   }
   for (const gd of document.querySelectorAll("main .js-plotly-plot:not([data-export])")) {
     gd.dataset.export = "1";
-    const png = el("button", {class: "klein", "data-t": "export_png", "data-t-title": "export_png_plot_titel", title: t("export_png_plot_titel"),
-      onclick: () => plotPng(gd, png)}, t("export_png"));
-    const next = gd.nextElementSibling;
-    (next && next.classList.contains("matrix-legende") ? next : gd).after(el("div", {class: "export-leiste"}, png));
+    const image = iconButton(ICON_IMAGE, "export_plot_titel", () => plotImage(gd, image, "svg"), "bild-knopf");
+    attachBar(gd, el("div", {class: "export-leiste"}, image));
   }
+}
+// The bar goes right under the table/plot (after a matrix legend, if any).
+// Inside a grid or flex row the node is wrapped first, so the bar does not
+// become a grid cell of its own (e.g. the side-by-side validation plots).
+function attachBar(node, bar) {
+  const parent = node.parentElement, next = node.nextElementSibling;
+  const legend = next && next.classList.contains("matrix-legende") ? next : null;
+  const d = getComputedStyle(parent);
+  if (d.display.includes("grid") || (d.display.includes("flex") && !d.flexDirection.startsWith("column"))) {
+    const cell = el("div", {class: "export-zelle"});
+    node.before(cell);
+    cell.append(node, ...(legend ? [legend] : []), bar);
+  } else (legend || node).after(bar);
 }
 {
   let queued = false;
